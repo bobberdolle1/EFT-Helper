@@ -43,6 +43,8 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
         text += f"  • " + ("Tier рейтинг" if language == "ru" else "Tier Rating") + f": {tier_emoji} **{weapon.tier_rating.value}**\n"
     if weapon.base_price:
         text += f"  • " + ("Базовая цена" if language == "ru" else "Base Price") + f": {weapon.base_price:,} ₽\n"
+    if weapon.flea_price:
+        text += f"  • 🏪 " + ("Цена на барахолке" if language == "ru" else "Flea Market Price") + f": **{weapon.flea_price:,} ₽**\n"
     text += "\n"
     
     # Combat stats
@@ -87,7 +89,16 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
                 module_name = module.name_ru if language == "ru" else module.name_en
                 slot_name = f" [{module.slot_type}]" if module.slot_type else ""
                 text += f"  • {module_name}{slot_name}\n"
-                text += f"    💰 {module.price:,} ₽ | LL{module.loyalty_level}\n"
+                
+                # Show trader price and loyalty level
+                trader_price_label = "Торговец" if language == "ru" else "Trader"
+                text += f"    💰 {trader_price_label}: {module.price:,} ₽ (LL{module.loyalty_level})"
+                
+                # Show flea market price if available
+                if module.flea_price:
+                    flea_label = "Барахолка" if language == "ru" else "Flea"
+                    text += f" | 🏪 {flea_label}: {module.flea_price:,} ₽"
+                text += "\n"
         
         text += "\n"
     

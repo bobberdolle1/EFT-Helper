@@ -29,6 +29,7 @@ class Database:
                     category TEXT NOT NULL,
                     tier_rating TEXT,
                     base_price INTEGER DEFAULT 0,
+                    flea_price INTEGER,
                     caliber TEXT,
                     ergonomics INTEGER,
                     recoil_vertical INTEGER,
@@ -47,7 +48,8 @@ class Database:
                     price INTEGER NOT NULL,
                     trader TEXT NOT NULL,
                     loyalty_level INTEGER NOT NULL,
-                    slot_type TEXT NOT NULL
+                    slot_type TEXT NOT NULL,
+                    flea_price INTEGER
                 )
             """)
             
@@ -165,7 +167,7 @@ class Database:
         """Get weapon by ID."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
                    caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
                    FROM weapons WHERE id = ?""",
                 (weapon_id,)
@@ -179,12 +181,13 @@ class Database:
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
                         base_price=row[5],
-                        caliber=row[6],
-                        ergonomics=row[7],
-                        recoil_vertical=row[8],
-                        recoil_horizontal=row[9],
-                        fire_rate=row[10],
-                        effective_range=row[11]
+                        flea_price=row[6],
+                        caliber=row[7],
+                        ergonomics=row[8],
+                        recoil_vertical=row[9],
+                        recoil_horizontal=row[10],
+                        fire_rate=row[11],
+                        effective_range=row[12]
                     )
                 return None
     
@@ -197,7 +200,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             # Поиск в обоих языках для лучшего UX
             async with db.execute(
-                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
                    caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
                    FROM weapons 
                    WHERE name_ru LIKE ? OR name_en LIKE ? 
@@ -213,12 +216,13 @@ class Database:
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
                         base_price=row[5],
-                        caliber=row[6],
-                        ergonomics=row[7],
-                        recoil_vertical=row[8],
-                        recoil_horizontal=row[9],
-                        fire_rate=row[10],
-                        effective_range=row[11]
+                        flea_price=row[6],
+                        caliber=row[7],
+                        ergonomics=row[8],
+                        recoil_vertical=row[9],
+                        recoil_horizontal=row[10],
+                        fire_rate=row[11],
+                        effective_range=row[12]
                     )
                     for row in rows
                 ]
@@ -227,7 +231,7 @@ class Database:
         """Get all weapons."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
                    caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
                    FROM weapons"""
             ) as cursor:
@@ -240,12 +244,13 @@ class Database:
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
                         base_price=row[5],
-                        caliber=row[6],
-                        ergonomics=row[7],
-                        recoil_vertical=row[8],
-                        recoil_horizontal=row[9],
-                        fire_rate=row[10],
-                        effective_range=row[11]
+                        flea_price=row[6],
+                        caliber=row[7],
+                        ergonomics=row[8],
+                        recoil_vertical=row[9],
+                        recoil_horizontal=row[10],
+                        fire_rate=row[11],
+                        effective_range=row[12]
                     )
                     for row in rows
                 ]
@@ -344,7 +349,7 @@ class Database:
         """Get module by ID."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT * FROM modules WHERE id = ?",
+                "SELECT id, name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price FROM modules WHERE id = ?",
                 (module_id,)
             ) as cursor:
                 row = await cursor.fetchone()
@@ -356,7 +361,8 @@ class Database:
                         price=row[3],
                         trader=row[4],
                         loyalty_level=row[5],
-                        slot_type=row[6]
+                        slot_type=row[6],
+                        flea_price=row[7]
                     )
                 return None
     
@@ -368,7 +374,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             placeholders = ",".join("?" * len(module_ids))
             async with db.execute(
-                f"SELECT * FROM modules WHERE id IN ({placeholders})",
+                f"SELECT id, name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price FROM modules WHERE id IN ({placeholders})",
                 module_ids
             ) as cursor:
                 rows = await cursor.fetchall()
@@ -380,7 +386,8 @@ class Database:
                         price=row[3],
                         trader=row[4],
                         loyalty_level=row[5],
-                        slot_type=row[6]
+                        slot_type=row[6],
+                        flea_price=row[7]
                     )
                     for row in rows
                 ]

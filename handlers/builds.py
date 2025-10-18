@@ -43,6 +43,27 @@ async def show_random_build(message: Message, user_service, build_service):
     await loading_msg.edit_text(build_text, parse_mode="Markdown")
 
 
+@router.message(F.text.in_([get_text("truly_random_build", "ru"), get_text("truly_random_build", "en")]))
+async def show_truly_random_build(message: Message, user_service, random_build_service):
+    """Show truly random build with compatibility checks."""
+    user = await user_service.get_or_create_user(message.from_user.id)
+    
+    # Show loading message
+    loading_msg = await message.answer(get_text("generating_truly_random", user.language))
+    
+    # Generate truly random build
+    build_data = await random_build_service.generate_random_build_for_random_weapon()
+    
+    if not build_data:
+        await loading_msg.edit_text(get_text("error", user.language))
+        return
+    
+    # Format build information
+    build_text, total_cost = random_build_service.format_build_info(build_data, user.language)
+    
+    await loading_msg.edit_text(build_text, parse_mode="Markdown")
+
+
 @router.message(F.text.in_([get_text("meta_builds", "ru"), get_text("meta_builds", "en")]))
 async def show_meta_builds(message: Message, user_service, build_service):
     """Show meta builds."""
@@ -69,7 +90,7 @@ async def show_quest_builds(message: Message, user_service, api_client):
     user = await user_service.get_or_create_user(message.from_user.id)
     
     # Show loading message
-    loading_msg = await message.answer("⏳ Загружаю квесты..." if user.language == "ru" else "⏳ Loading quests...")
+    loading_msg = await message.answer(get_text("loading_quests", user.language))
     
     # Get only weapon build quests from API
     tasks = await api_client.get_weapon_build_tasks()
@@ -90,8 +111,8 @@ async def show_quest_builds(message: Message, user_service, api_client):
         traders[trader_name].append(task)
     
     # Format quest list
-    text = "📜 **Квестовые сборки**\n\n" if user.language == "ru" else "📜 **Quest Builds**\n\n"
-    text += "Выберите квест для просмотра информации:" if user.language == "ru" else "Select a quest to view information:"
+    text = f"**{get_text('quest_builds_title', user.language)}**\n\n"
+    text += get_text("select_quest", user.language)
     
     # Create inline keyboard with quest buttons
     buttons = []
@@ -133,7 +154,7 @@ async def show_all_quest_builds(message: Message, user_service, api_client):
     user = await user_service.get_or_create_user(message.from_user.id)
     
     # Show loading message
-    loading_msg = await message.answer("⏳ Загружаю квесты..." if user.language == "ru" else "⏳ Loading quests...")
+    loading_msg = await message.answer(get_text("loading_quests", user.language))
     
     # Get only weapon build quests from API
     tasks = await api_client.get_weapon_build_tasks()
@@ -154,8 +175,8 @@ async def show_all_quest_builds(message: Message, user_service, api_client):
         traders[trader_name].append(task)
     
     # Format quest list
-    text = "📜 **Все квестовые сборки**\n\n" if user.language == "ru" else "📜 **All Quest Builds**\n\n"
-    text += "Выберите квест для просмотра информации:" if user.language == "ru" else "Select a quest to view information:"
+    text = f"**{get_text('all_quest_builds_title', user.language)}**\n\n"
+    text += get_text("select_quest", user.language)
     
     # Create inline keyboard with quest buttons
     buttons = []
@@ -241,8 +262,10 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
 
 
 @router.callback_query(F.data.startswith("quest_detail:"))
-async def show_quest_detail(callback: CallbackQuery, user_service, api_client):
+async def show_quest_detail(callback: CallbackQuery, user_service, api_client, build_service, db: Database):
     """Show quest details and recommended build."""
+    from utils.formatters import format_build_card
+    
     user = await user_service.get_or_create_user(callback.from_user.id)
     quest_id = callback.data.split(":")[1]
     
@@ -271,15 +294,15 @@ async def show_quest_detail(callback: CallbackQuery, user_service, api_client):
     task_requirements = quest_data.get("taskRequirements", [])
     
     text = f"📜 **{name}**\n\n"
-    text += f"**{('Торговец' if user.language == 'ru' else 'Trader')}:** {trader_name}\n"
-    text += f"**{('Требуемый уровень' if user.language == 'ru' else 'Required Level')}:** {level}\n"
-    text += f"**{('Опыт' if user.language == 'ru' else 'Experience')}:** {experience} XP\n"
+    text += f"**{get_text('quest_trader', user.language)}:** {trader_name}\n"
+    text += f"**{get_text('quest_level', user.language)}:** {level}\n"
+    text += f"**{get_text('quest_experience', user.language)}:** {experience} XP\n"
     if map_name and map_name != "Any":
-        text += f"**{('Карта' if user.language == 'ru' else 'Map')}:** {map_name}\n"
+        text += f"**{get_text('quest_map', user.language)}:** {map_name}\n"
     text += "\n"
     
     if task_requirements:
-        text += f"📋 **{('Требуемые квесты' if user.language == 'ru' else 'Required Tasks')}:**\n"
+        text += f"📋 **{get_text('quest_required_tasks', user.language)}:**\n"
         for req in task_requirements[:5]:  # Limit to 5 requirements
             req_task = req.get("task", {})
             req_name = req_task.get("name", "Unknown")
@@ -287,15 +310,39 @@ async def show_quest_detail(callback: CallbackQuery, user_service, api_client):
         text += "\n"
     
     if objectives:
-        text += f"🎯 **{('Цели' if user.language == 'ru' else 'Objectives')}:**\n"
+        text += f"🎯 **{get_text('quest_objectives', user.language)}:**\n"
         for i, obj in enumerate(objectives[:10], 1):  # Limit to 10 objectives
             description = obj.get("description", "No description")
             obj_type = obj.get("type", "")
             optional = obj.get("optional", False)
-            optional_mark = " (опц.)" if optional and user.language == "ru" else " (opt.)" if optional else ""
+            optional_mark = f" ({get_text('quest_optional', user.language)})" if optional else ""
             text += f"  {i}. {description}{optional_mark}\n"
         if len(objectives) > 10:
-            text += f"  ... {('и ещё' if user.language == 'ru' else 'and')} {len(objectives) - 10} {('целей' if user.language == 'ru' else 'more objectives')}\n"
+            text += f"  ... {get_text('quest_and_more', user.language)} {len(objectives) - 10} {get_text('quest_more_objectives', user.language)}\n"
+        text += "\n"
+    
+    # Try to find a recommended build for this quest
+    # Look for builds with quest_name matching this quest
+    quest_builds = await db.get_quest_builds()
+    matching_build = None
+    
+    for build in quest_builds:
+        # Check if quest_name in build matches the current quest name
+        # Use language-specific quest_name field
+        build_quest_name = build.quest_name_ru if user.language == "ru" else build.quest_name_en
+        if build_quest_name and (build_quest_name.lower() in name.lower() or name.lower() in build_quest_name.lower()):
+            matching_build = build
+            break
+    
+    # If found a matching build, display it
+    if matching_build:
+        weapon = await db.get_weapon_by_id(matching_build.weapon_id)
+        modules = await db.get_modules_by_ids(matching_build.modules)
+        
+        if weapon:
+            text += f"\n🔧 **{get_text('quest_recommended_build', user.language)}:**\n\n"
+            build_card = await format_build_card(matching_build, weapon, modules, user.language)
+            text += build_card
     
     await callback.message.edit_text(text, parse_mode="Markdown")
     await callback.answer()

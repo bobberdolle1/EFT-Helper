@@ -41,6 +41,7 @@ class Weapon:
     category: WeaponCategory
     tier_rating: Optional[TierRating] = None
     base_price: int = 0
+    flea_price: Optional[int] = None  # Flea market price
     # Weapon characteristics
     caliber: Optional[str] = None
     ergonomics: Optional[int] = None
@@ -60,6 +61,7 @@ class Module:
     trader: str
     loyalty_level: int
     slot_type: str  # e.g., "stock", "grip", "sight", "barrel", etc.
+    flea_price: Optional[int] = None  # Flea market price
 
 
 @dataclass

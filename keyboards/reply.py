@@ -12,14 +12,15 @@ def get_main_menu_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=get_text("random_build", language))
             ],
             [
-                KeyboardButton(text=get_text("all_quest_builds", language)),
+                KeyboardButton(text=get_text("truly_random_build", language)),
                 KeyboardButton(text=get_text("meta_builds", language))
             ],
             [
-                KeyboardButton(text=get_text("loyalty_builds", language)),
-                KeyboardButton(text=get_text("best_weapons", language))
+                KeyboardButton(text=get_text("all_quest_builds", language)),
+                KeyboardButton(text=get_text("loyalty_builds", language))
             ],
             [
+                KeyboardButton(text=get_text("best_weapons", language)),
                 KeyboardButton(text=get_text("settings", language))
             ]
         ],

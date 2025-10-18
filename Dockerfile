@@ -40,5 +40,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Открываем порт (если потребуется в будущем для webhook)
 EXPOSE 8080
 
+# Создаем директорию для логов
+RUN mkdir -p /app/logs
+
 # Запускаем бота
-CMD ["python", "start.py"]
+CMD ["python", "main.py"]

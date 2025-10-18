@@ -1,7 +1,7 @@
 """Service for synchronizing data from tarkov.dev API to database."""
 import logging
 import aiosqlite
-from typing import Dict, List
+from typing import Dict, List, Optional
 from database import Database, WeaponCategory
 from api_clients import TarkovAPIClient
 
@@ -98,6 +98,7 @@ class SyncService:
                 
                 tier_rating = TIER_RATINGS.get(name, None)
                 price = weapon_data.get("avg24hPrice", 0) or 0
+                flea_price = weapon_data.get("avg24hPrice", None)  # Flea market price
                 
                 # Extract properties
                 properties = weapon_data.get("properties", {})
@@ -113,10 +114,10 @@ class SyncService:
                 try:
                     await conn.execute(
                         """INSERT OR REPLACE INTO weapons 
-                        (name_ru, name_en, category, tier_rating, base_price,
+                        (name_ru, name_en, category, tier_rating, base_price, flea_price,
                          caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (name, name, category.value, tier_rating, price,
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (name, name, category.value, tier_rating, price, flea_price,
                          caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range)
                     )
                     added_count += 1
@@ -148,12 +149,14 @@ class SyncService:
                 
                 name = mod.get("shortName", mod.get("name", "Unknown"))
                 price = mod.get("avg24hPrice", 0) or 0
+                flea_price = mod.get("avg24hPrice", None)  # Flea market price
                 
                 # Determine slot type
                 slot_type = self._determine_slot_type(name, mod.get("types", []))
                 
                 # Get trader info from sellFor
                 trader = "Mechanic"
+                trader_price = price  # Default to avg price
                 loyalty_level = 2
                 sell_for = mod.get("sellFor", [])
                 if sell_for:
@@ -162,14 +165,15 @@ class SyncService:
                         if vendor:
                             trader = vendor.get("name", "Mechanic")
                             loyalty_level = vendor.get("minTraderLevel", 2)
+                            trader_price = sale.get("price", price)
                             break
                 
                 try:
                     await conn.execute(
                         """INSERT OR REPLACE INTO modules 
-                        (name_ru, name_en, price, trader, loyalty_level, slot_type) 
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                        (name, name, price, trader, loyalty_level, slot_type)
+                        (name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (name, name, trader_price, trader, loyalty_level, slot_type, flea_price)
                     )
                     added_count += 1
                 except Exception as e:

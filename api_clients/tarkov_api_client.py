@@ -275,7 +275,7 @@ class TarkovAPIClient:
         return []
     
     async def get_weapon_build_tasks(self) -> List[Dict]:
-        """Get only tasks/quests related to weapon builds (Gunsmith, etc.)."""
+        """Get only tasks/quests related to weapon builds from Mechanic (Gunsmith, etc.)."""
         cache_key = "weapon_build_tasks"
         cached = self._get_cached(cache_key)
         if cached is not None:
@@ -284,7 +284,7 @@ class TarkovAPIClient:
         # Get all tasks
         all_tasks = await self.get_all_tasks()
         
-        # Filter tasks that require weapon builds
+        # Filter tasks that require weapon builds AND are from Mechanic
         build_tasks = []
         build_keywords = [
             "gunsmith",
@@ -298,6 +298,14 @@ class TarkovAPIClient:
         ]
         
         for task in all_tasks:
+            # Check if task is from Mechanic
+            trader_data = task.get("trader")
+            if not trader_data:
+                continue
+            trader_name = trader_data.get("name", "")
+            if trader_name.lower() != "mechanic":
+                continue
+            
             task_name = task.get("name", "").lower()
             task_normalized = task.get("normalizedName", "").lower()
             
@@ -318,7 +326,7 @@ class TarkovAPIClient:
                 build_tasks.append(task)
         
         self._set_cache(cache_key, build_tasks)
-        logger.info(f"Filtered {len(build_tasks)} weapon build tasks from {len(all_tasks)} total tasks")
+        logger.info(f"Filtered {len(build_tasks)} weapon build tasks from Mechanic from {len(all_tasks)} total tasks")
         return build_tasks
     
     async def search_items(self, search_term: str, item_types: Optional[List[str]] = None) -> List[Dict]:
@@ -361,6 +369,79 @@ class TarkovAPIClient:
             return items
         
         return []
+    
+    async def get_weapon_details(self, weapon_id: str) -> Optional[Dict]:
+        """
+        Get detailed weapon information including slots and compatible mods.
+        
+        Args:
+            weapon_id: Weapon item ID
+            
+        Returns:
+            Dictionary with weapon details including slots
+        """
+        cache_key = f"weapon_details_{weapon_id}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+        
+        query = f"""
+        {{
+            item(id: "{weapon_id}") {{
+                id
+                name
+                shortName
+                normalizedName
+                types
+                avg24hPrice
+                category {{
+                    name
+                }}
+                properties {{
+                    ... on ItemPropertiesWeapon {{
+                        caliber
+                        ergonomics
+                        recoilVertical
+                        recoilHorizontal
+                        fireRate
+                        defaultPreset {{
+                            id
+                        }}
+                        slots {{
+                            id
+                            name
+                            nameId
+                            required
+                            filters {{
+                                allowedCategories {{
+                                    id
+                                    name
+                                }}
+                                allowedItems {{
+                                    id
+                                    name
+                                    shortName
+                                    avg24hPrice
+                                }}
+                                excludedItems {{
+                                    id
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+        """
+        
+        data = await self._make_graphql_request(query)
+        if data and "item" in data:
+            weapon_data = data["item"]
+            self._set_cache(cache_key, weapon_data)
+            logger.info(f"Fetched details for weapon {weapon_id}")
+            return weapon_data
+        
+        return None
     
     def clear_cache(self):
         """Clear all cached data."""

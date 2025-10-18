@@ -2,6 +2,11 @@
 import asyncio
 import sys
 import os
+import locale
+
+# Set UTF-8 encoding for Windows console
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -11,27 +16,27 @@ from api_clients import TarkovAPIClient
 async def test_quests():
     """Test loading quests from API."""
     print("=" * 60)
-    print("  Тест загрузки квестов из API")
+    print("  Test zagruzki kvestov iz API")
     print("=" * 60)
     print()
     
     client = TarkovAPIClient()
     
     try:
-        print("📡 Загружаю ВСЕ квесты из tarkov.dev API...")
+        print("Loading ALL quests from tarkov.dev API...")
         all_tasks = await client.get_all_tasks()
         
         if not all_tasks:
-            print("❌ Не удалось загрузить квесты")
+            print("ERROR: Failed to load quests")
             return
         
-        print(f"✅ Загружено всего квестов: {len(all_tasks)}")
+        print(f"SUCCESS: Loaded {len(all_tasks)} total quests")
         print()
         
-        print("🔧 Фильтрую квесты связанные со сборками оружия...")
+        print("Filtering weapon build related quests...")
         build_tasks = await client.get_weapon_build_tasks()
         
-        print(f"✅ Найдено квестов со сборками: {len(build_tasks)}")
+        print(f"SUCCESS: Found {len(build_tasks)} build quests")
         print()
         
         # Group by trader
@@ -45,13 +50,13 @@ async def test_quests():
                 traders[trader_name] = []
             traders[trader_name].append(task)
         
-        print("📊 Квесты со сборками по торговцам:")
+        print("Build quests by trader:")
         for trader_name in sorted(traders.keys()):
-            print(f"  {trader_name}: {len(traders[trader_name])} квестов")
+            print(f"  {trader_name}: {len(traders[trader_name])} quests")
         print()
         
         # Show all build quests
-        print("📜 Все квесты со сборками:")
+        print("All build quests:")
         for i, task in enumerate(build_tasks, 1):
             name = task.get("name", "Unknown")
             trader_data = task.get("trader", {})
@@ -61,7 +66,7 @@ async def test_quests():
         
         print()
         print("=" * 60)
-        print(f"✅ Тест успешно завершен: {len(build_tasks)}/{len(all_tasks)} квестов")
+        print(f"SUCCESS: Test completed: {len(build_tasks)}/{len(all_tasks)} build quests")
         print("=" * 60)
         
     finally:

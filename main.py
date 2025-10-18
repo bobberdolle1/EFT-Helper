@@ -14,6 +14,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from database import Database
 from api_clients import TarkovAPIClient
 from services import WeaponService, BuildService, UserService, SyncService
+from services.random_build_service import RandomBuildService
 from handlers import common, search, builds, loyalty, tier_list, settings
 
 # Load environment variables
@@ -51,6 +52,7 @@ class BotApplication:
         self.build_service = BuildService(self.db, self.api_client)
         self.user_service = UserService(self.db)
         self.sync_service = SyncService(self.db, self.api_client)
+        self.random_build_service = RandomBuildService(self.api_client)
         
         # Bot and Dispatcher
         self.bot = Bot(token=self.bot_token)
@@ -61,12 +63,10 @@ class BotApplication:
         """Initialize database and prepare bot."""
         logger.info("Initializing database...")
         await self.db.init_db()
-        
-        # Check if database needs initial population
-        async with self.db.db_path as _:
-            pass  # Database is ready
-        
         logger.info("Database initialized successfully")
+        
+        # Автоматическое обновление цен при запуске
+        await self.update_prices_on_startup()
     
     def register_handlers(self):
         """Register all bot handlers."""
@@ -89,6 +89,7 @@ class BotApplication:
             data["build_service"] = self.build_service
             data["user_service"] = self.user_service
             data["api_client"] = self.api_client
+            data["random_build_service"] = self.random_build_service
             return await handler(event, data)
         
         @self.dp.error()
@@ -96,6 +97,48 @@ class BotApplication:
             """Global error handler."""
             logger.error(f"Error occurred: {exception}", exc_info=True)
             return True
+        
+        logger.info("Middleware registered")
+    
+    async def update_prices_on_startup(self):
+        """Обновление цен с API при запуске бота."""
+        try:
+            logger.info("🔄 Проверка актуальности данных...")
+            
+            # Проверяем, есть ли данные в базе
+            import aiosqlite
+            async with aiosqlite.connect(self.db.db_path) as conn:
+                async with conn.execute("SELECT COUNT(*) FROM weapons") as cursor:
+                    weapons_count = (await cursor.fetchone())[0]
+            
+            if weapons_count > 0:
+                logger.info("💰 Обновление цен с tarkov.dev API...")
+                await self.sync_service.sync_weapons()
+                await self.sync_service.sync_modules()
+                logger.info("✅ Цены успешно обновлены")
+            else:
+                logger.info("⚠️  База данных пуста. Запустите синхронизацию вручную.")
+        except Exception as e:
+            logger.warning(f"⚠️  Не удалось обновить цены: {e}")
+            logger.info("Бот продолжит работу с текущими данными")
+    
+    async def price_update_task(self):
+        """Фоновая задача для периодического обновления цен."""
+        while True:
+            try:
+                # Ждем 12 часов
+                await asyncio.sleep(12 * 60 * 60)
+                
+                logger.info("🔄 Плановое обновление цен...")
+                await self.sync_service.sync_weapons()
+                await self.sync_service.sync_modules()
+                logger.info("✅ Цены обновлены")
+            except asyncio.CancelledError:
+                logger.info("Задача обновления цен остановлена")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении цен: {e}")
+                # Продолжаем работу даже при ошибке
         
         logger.info("Middleware registered")
     
@@ -107,7 +150,11 @@ class BotApplication:
         
         logger.info("=" * 60)
         logger.info("  EFT Helper Bot Started")
+        logger.info("  Автообновление цен: каждые 12 часов")
         logger.info("=" * 60)
+        
+        # Запускаем фоновую задачу обновления цен
+        price_task = asyncio.create_task(self.price_update_task())
         
         try:
             await self.dp.start_polling(
@@ -115,6 +162,12 @@ class BotApplication:
                 allowed_updates=self.dp.resolve_used_update_types()
             )
         finally:
+            # Останавливаем фоновую задачу
+            price_task.cancel()
+            try:
+                await price_task
+            except asyncio.CancelledError:
+                pass
             await self.cleanup()
     
     async def cleanup(self):

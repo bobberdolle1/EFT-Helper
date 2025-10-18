@@ -70,7 +70,8 @@ async def migrate_database():
             ("recoil_vertical", "INTEGER"),
             ("recoil_horizontal", "INTEGER"),
             ("fire_rate", "INTEGER"),
-            ("effective_range", "INTEGER")
+            ("effective_range", "INTEGER"),
+            ("flea_price", "INTEGER")
         ]
         
         migration_needed = False
@@ -88,6 +89,20 @@ async def migrate_database():
         if migration_needed:
             await db.commit()
             print("   ✅ Характеристики оружия добавлены")
+        
+        # Миграция 3: Добавление flea_price в modules
+        async with db.execute("PRAGMA table_info(modules)") as cursor:
+            columns = await cursor.fetchall()
+            module_columns = [col[1] for col in columns]
+        
+        if "flea_price" not in module_columns:
+            print("   📝 Миграция: добавление flea_price в modules...")
+            try:
+                await db.execute("ALTER TABLE modules ADD COLUMN flea_price INTEGER")
+                await db.commit()
+                print("   ✅ flea_price добавлен в modules")
+            except Exception as e:
+                print(f"   ⚠️  Ошибка при добавлении flea_price: {e}")
 
 
 async def init_database():
@@ -276,8 +291,13 @@ async def main():
             print("   Попробуйте запустить вручную: python populate_db.py")
             return
         
-        print("\n💡 Подсказка: для получения актуальных данных из tarkov.dev API")
-        print("   запустите: python sync_tarkov_data.py")
+        # Автоматически синхронизируем с API для получения актуальных цен
+        print("\n🔄 Автоматическое обновление цен с API...")
+        await sync_from_api()
+    else:
+        # База заполнена, просто обновляем цены
+        print("\n🔄 Обновление цен с API...")
+        await sync_from_api()
     
     # 5. Финальная проверка
     print("\n✅ Все проверки пройдены!")
