@@ -93,11 +93,25 @@ async def show_quest_builds(message: Message, user_service, api_client):
     # Show loading message
     loading_msg = await message.answer(get_text("loading_quests", user.language))
     
-    # Get only weapon build quests from API with user's language
-    tasks = await api_client.get_weapon_build_tasks(lang=user.language)
+    try:
+        # Get only weapon build quests from API with user's language
+        tasks = await api_client.get_weapon_build_tasks(lang=user.language)
+    except Exception as e:
+        logger.error(f"Error fetching weapon build tasks: {e}", exc_info=True)
+        error_text = get_text("error", user.language) + "\n\n💡 " + (
+            "Проверьте подключение к интернету и повторите попытку." if user.language == "ru" 
+            else "Check your internet connection and try again."
+        )
+        await loading_msg.edit_text(error_text)
+        return
     
     if not tasks:
-        await loading_msg.edit_text(get_text("no_quest_builds", user.language))
+        no_quests_text = get_text("no_quest_builds", user.language)
+        no_quests_text += "\n\n💡 " + (
+            "Квесты загружаются из Tarkov.dev API. Убедитесь в наличии интернет-соединения." if user.language == "ru" 
+            else "Quests are loaded from Tarkov.dev API. Ensure you have an internet connection."
+        )
+        await loading_msg.edit_text(no_quests_text)
         return
     
     # Group quests by trader
