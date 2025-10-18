@@ -62,63 +62,131 @@ async def show_meta_builds(message: Message, user_service, build_service):
 
 
 @router.message(F.text.in_([get_text("quest_builds", "ru"), get_text("quest_builds", "en")]))
-async def show_quest_builds(message: Message, user_service):
+async def show_quest_builds(message: Message, user_service, api_client):
     """Show quest-related builds with interactive buttons."""
-    from database.quest_builds_data import get_all_quests
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
     user = await user_service.get_or_create_user(message.from_user.id)
-    quests = get_all_quests()
     
-    if not quests:
-        await message.answer(get_text("no_quest_builds", user.language))
+    # Show loading message
+    loading_msg = await message.answer("⏳ Загружаю квесты..." if user.language == "ru" else "⏳ Loading quests...")
+    
+    # Get only weapon build quests from API
+    tasks = await api_client.get_weapon_build_tasks()
+    
+    if not tasks:
+        await loading_msg.edit_text(get_text("no_quest_builds", user.language))
         return
     
     # Group quests by trader
     traders = {}
-    for quest_id, quest_data in quests.items():
-        trader = quest_data.get("trader", "Unknown")
-        if trader not in traders:
-            traders[trader] = []
-        traders[trader].append({"id": quest_id, **quest_data})
+    for task in tasks:
+        trader_data = task.get("trader")
+        if not trader_data:
+            continue
+        trader_name = trader_data.get("name", "Unknown")
+        if trader_name not in traders:
+            traders[trader_name] = []
+        traders[trader_name].append(task)
     
     # Format quest list
     text = "📜 **Квестовые сборки**\n\n" if user.language == "ru" else "📜 **Quest Builds**\n\n"
-    text += "Выберите квест для просмотра рекомендуемой сборки:" if user.language == "ru" else "Select a quest to view recommended build:"
+    text += "Выберите квест для просмотра информации:" if user.language == "ru" else "Select a quest to view information:"
     
     # Create inline keyboard with quest buttons
     buttons = []
-    for trader, trader_quests in sorted(traders.items()):
-        emoji = {"Mechanic": "🔧", "Prapor": "🔫", "Jaeger": "🌲"}.get(trader, "👤")
-        # Add trader header (non-clickable)
-        for quest in trader_quests:
-            name = quest["name_ru"] if user.language == "ru" else quest["name_en"]
-            level = quest.get("level_required", "?")
+    trader_emoji = {
+        "Prapor": "🔫",
+        "Therapist": "💊",
+        "Fence": "🤝",
+        "Skier": "⛷️",
+        "Peacekeeper": "🕊️",
+        "Mechanic": "🔧",
+        "Ragman": "👔",
+        "Jaeger": "🌲",
+        "Lightkeeper": "💡"
+    }
+    
+    for trader_name in sorted(traders.keys()):
+        trader_tasks = traders[trader_name]
+        emoji = trader_emoji.get(trader_name, "👤")
+        
+        for task in sorted(trader_tasks, key=lambda t: t.get("minPlayerLevel", 0)):
+            name = task.get("name", "Unknown Quest")
+            level = task.get("minPlayerLevel", "?")
+            task_id = task.get("id", "")
             button_text = f"{emoji} {name} (Lvl {level})"
             buttons.append([InlineKeyboardButton(
                 text=button_text,
-                callback_data=f"quest_detail:{quest['id']}"
+                callback_data=f"quest_detail:{task_id}"
             )])
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+    await loading_msg.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(F.text.in_([get_text("all_quest_builds", "ru"), get_text("all_quest_builds", "en")]))
-async def show_all_quest_builds(message: Message, db: Database):
+async def show_all_quest_builds(message: Message, user_service, api_client):
     """Show all quest builds."""
-    user = await db.get_or_create_user(message.from_user.id)
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
-    builds = await db.get_quest_builds()
+    user = await user_service.get_or_create_user(message.from_user.id)
     
-    if not builds:
-        await message.answer(get_text("no_quest_builds", user.language))
+    # Show loading message
+    loading_msg = await message.answer("⏳ Загружаю квесты..." if user.language == "ru" else "⏳ Loading quests...")
+    
+    # Get only weapon build quests from API
+    tasks = await api_client.get_weapon_build_tasks()
+    
+    if not tasks:
+        await loading_msg.edit_text(get_text("no_quest_builds", user.language))
         return
     
-    text = get_text("quest_builds_list", user.language)
-    keyboard = get_builds_list_keyboard(builds, user.language)
+    # Group quests by trader
+    traders = {}
+    for task in tasks:
+        trader_data = task.get("trader")
+        if not trader_data:
+            continue
+        trader_name = trader_data.get("name", "Unknown")
+        if trader_name not in traders:
+            traders[trader_name] = []
+        traders[trader_name].append(task)
     
-    await message.answer(text, reply_markup=keyboard)
+    # Format quest list
+    text = "📜 **Все квестовые сборки**\n\n" if user.language == "ru" else "📜 **All Quest Builds**\n\n"
+    text += "Выберите квест для просмотра информации:" if user.language == "ru" else "Select a quest to view information:"
+    
+    # Create inline keyboard with quest buttons
+    buttons = []
+    trader_emoji = {
+        "Prapor": "🔫",
+        "Therapist": "💊",
+        "Fence": "🤝",
+        "Skier": "⛷️",
+        "Peacekeeper": "🕊️",
+        "Mechanic": "🔧",
+        "Ragman": "👔",
+        "Jaeger": "🌲",
+        "Lightkeeper": "💡"
+    }
+    
+    for trader_name in sorted(traders.keys()):
+        trader_tasks = traders[trader_name]
+        emoji = trader_emoji.get(trader_name, "👤")
+        
+        for task in sorted(trader_tasks, key=lambda t: t.get("minPlayerLevel", 0)):
+            name = task.get("name", "Unknown Quest")
+            level = task.get("minPlayerLevel", "?")
+            task_id = task.get("id", "")
+            button_text = f"{emoji} {name} (Lvl {level})"
+            buttons.append([InlineKeyboardButton(
+                text=button_text,
+                callback_data=f"quest_detail:{task_id}"
+            )])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await loading_msg.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.callback_query(F.data.startswith("build:"))
@@ -173,54 +241,61 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
 
 
 @router.callback_query(F.data.startswith("quest_detail:"))
-async def show_quest_detail(callback: CallbackQuery, db: Database):
+async def show_quest_detail(callback: CallbackQuery, user_service, api_client):
     """Show quest details and recommended build."""
-    from database.quest_builds_data import get_quest_by_id
-    
-    user = await db.get_or_create_user(callback.from_user.id)
+    user = await user_service.get_or_create_user(callback.from_user.id)
     quest_id = callback.data.split(":")[1]
     
-    quest_data = get_quest_by_id(quest_id)
+    # Get weapon build tasks from API to find the specific one
+    tasks = await api_client.get_weapon_build_tasks()
+    quest_data = None
+    for task in tasks:
+        if task.get("id") == quest_id:
+            quest_data = task
+            break
     
     if not quest_data:
         await callback.answer(get_text("error", user.language))
         return
     
     # Format quest details
-    name = quest_data.get("name_ru") if user.language == "ru" else quest_data.get("name_en")
-    description = quest_data.get("description_ru") if user.language == "ru" else quest_data.get("description_en")
-    trader = quest_data.get("trader", "Unknown")
-    level = quest_data.get("level_required", "?")
-    weapon = quest_data.get("weapon", "")
-    requirements = quest_data.get("requirements", {})
-    recommended_parts = quest_data.get("recommended_parts", [])
-    recommended_weapons = quest_data.get("recommended_weapons", [])
+    name = quest_data.get("name", "Unknown Quest")
+    trader_data = quest_data.get("trader", {})
+    trader_name = trader_data.get("name", "Unknown") if trader_data else "Unknown"
+    level = quest_data.get("minPlayerLevel", "?")
+    experience = quest_data.get("experience", 0)
+    map_data = quest_data.get("map")
+    map_name = map_data.get("name") if map_data else "Any"
+    
+    objectives = quest_data.get("objectives", [])
+    task_requirements = quest_data.get("taskRequirements", [])
     
     text = f"📜 **{name}**\n\n"
-    text += f"**{get_text('trader' if user.language == 'en' else 'trader', user.language) if False else ('Торговец' if user.language == 'ru' else 'Trader')}:** {trader}\n"
-    text += f"**{('Требуемый уровень' if user.language == 'ru' else 'Required Level')}:** {level}\n\n"
-    text += f"📋 **{('Описание' if user.language == 'ru' else 'Description')}:**\n{description}\n\n"
+    text += f"**{('Торговец' if user.language == 'ru' else 'Trader')}:** {trader_name}\n"
+    text += f"**{('Требуемый уровень' if user.language == 'ru' else 'Required Level')}:** {level}\n"
+    text += f"**{('Опыт' if user.language == 'ru' else 'Experience')}:** {experience} XP\n"
+    if map_name and map_name != "Any":
+        text += f"**{('Карта' if user.language == 'ru' else 'Map')}:** {map_name}\n"
+    text += "\n"
     
-    if weapon:
-        text += f"🔫 **{('Оружие' if user.language == 'ru' else 'Weapon')}:** {weapon}\n\n"
-    
-    if recommended_weapons:
-        text += f"🎯 **{('Рекомендуемые оружия' if user.language == 'ru' else 'Recommended Weapons')}:**\n"
-        for w in recommended_weapons:
-            text += f"  • {w}\n"
+    if task_requirements:
+        text += f"📋 **{('Требуемые квесты' if user.language == 'ru' else 'Required Tasks')}:**\n"
+        for req in task_requirements[:5]:  # Limit to 5 requirements
+            req_task = req.get("task", {})
+            req_name = req_task.get("name", "Unknown")
+            text += f"  • {req_name}\n"
         text += "\n"
     
-    if requirements:
-        text += f"✅ **{('Требования' if user.language == 'ru' else 'Requirements')}:**\n"
-        for req_key, req_value in requirements.items():
-            req_name = req_key.replace('_', ' ').title()
-            text += f"  • {req_name}: {req_value}\n"
-        text += "\n"
-    
-    if recommended_parts:
-        text += f"🔧 **{('Рекомендуемые модули' if user.language == 'ru' else 'Recommended Parts')}:**\n"
-        for part in recommended_parts:
-            text += f"  • {part}\n"
+    if objectives:
+        text += f"🎯 **{('Цели' if user.language == 'ru' else 'Objectives')}:**\n"
+        for i, obj in enumerate(objectives[:10], 1):  # Limit to 10 objectives
+            description = obj.get("description", "No description")
+            obj_type = obj.get("type", "")
+            optional = obj.get("optional", False)
+            optional_mark = " (опц.)" if optional and user.language == "ru" else " (opt.)" if optional else ""
+            text += f"  {i}. {description}{optional_mark}\n"
+        if len(objectives) > 10:
+            text += f"  ... {('и ещё' if user.language == 'ru' else 'and')} {len(objectives) - 10} {('целей' if user.language == 'ru' else 'more objectives')}\n"
     
     await callback.message.edit_text(text, parse_mode="Markdown")
     await callback.answer()

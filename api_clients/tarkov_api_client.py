@@ -226,6 +226,101 @@ class TarkovAPIClient:
         
         return {}
     
+    async def get_all_tasks(self) -> List[Dict]:
+        """Get all tasks/quests from tarkov.dev API."""
+        cache_key = "all_tasks"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+        
+        query = """
+        {
+            tasks {
+                id
+                name
+                normalizedName
+                trader {
+                    name
+                    normalizedName
+                }
+                map {
+                    name
+                    normalizedName
+                }
+                experience
+                minPlayerLevel
+                taskRequirements {
+                    task {
+                        id
+                        name
+                    }
+                }
+                objectives {
+                    id
+                    type
+                    description
+                    optional
+                }
+            }
+        }
+        """
+        
+        data = await self._make_graphql_request(query)
+        if data and "tasks" in data:
+            tasks = data["tasks"]
+            self._set_cache(cache_key, tasks)
+            logger.info(f"Fetched {len(tasks)} tasks from API")
+            return tasks
+        
+        return []
+    
+    async def get_weapon_build_tasks(self) -> List[Dict]:
+        """Get only tasks/quests related to weapon builds (Gunsmith, etc.)."""
+        cache_key = "weapon_build_tasks"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+        
+        # Get all tasks
+        all_tasks = await self.get_all_tasks()
+        
+        # Filter tasks that require weapon builds
+        build_tasks = []
+        build_keywords = [
+            "gunsmith",
+            "оружейник",
+            "build",
+            "сборка",
+            "modify",
+            "модифицировать",
+            "weapon",
+            "оружие"
+        ]
+        
+        for task in all_tasks:
+            task_name = task.get("name", "").lower()
+            task_normalized = task.get("normalizedName", "").lower()
+            
+            # Check if task name contains build-related keywords
+            is_build_quest = any(keyword in task_name or keyword in task_normalized for keyword in build_keywords)
+            
+            if not is_build_quest:
+                # Also check objectives for "buildWeapon" type
+                objectives = task.get("objectives", [])
+                for obj in objectives:
+                    obj_type = obj.get("type", "").lower()
+                    obj_desc = obj.get("description", "").lower()
+                    if "buildweapon" in obj_type or any(kw in obj_desc for kw in ["build", "modify", "assemble"]):
+                        is_build_quest = True
+                        break
+            
+            if is_build_quest:
+                build_tasks.append(task)
+        
+        self._set_cache(cache_key, build_tasks)
+        logger.info(f"Filtered {len(build_tasks)} weapon build tasks from {len(all_tasks)} total tasks")
+        return build_tasks
+    
     async def search_items(self, search_term: str, item_types: Optional[List[str]] = None) -> List[Dict]:
         """Search items by name and optionally filter by types."""
         types_filter = ""
