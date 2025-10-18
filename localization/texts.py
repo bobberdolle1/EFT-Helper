@@ -26,6 +26,8 @@ TEXTS = {
         "random_build_btn": "🎲 Случайная",
         "meta_build_btn": "⚔️ Мета",
         "quest_build_btn": "📜 Квестовая",
+        "constructor_btn": "🛠️ Конфигуратор",
+        "budget_build_btn": "💰 По бюджету",
         "loyalty_build_btn": "🤝 По лояльности",
         
         # Build display
@@ -239,6 +241,8 @@ TEXTS = {
         "random_build_btn": "🎲 Random",
         "meta_build_btn": "⚔️ Meta",
         "quest_build_btn": "📜 Quest",
+        "constructor_btn": "🛠️ Constructor",
+        "budget_build_btn": "💰 By Budget",
         "loyalty_build_btn": "🤝 By Loyalty",
         
         # Build display

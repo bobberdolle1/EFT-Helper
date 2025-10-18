@@ -139,10 +139,15 @@ class RandomBuildService:
             Словарь с информацией о сборке или None
         """
         # Получаем список всех оружий с локализацией
-        weapons = await self.api.get_all_weapons(lang=lang)
+        try:
+            weapons = await self.api.get_all_weapons(lang=lang)
+            logger.info(f"API returned {len(weapons) if weapons else 0} weapons for lang={lang}")
+        except Exception as e:
+            logger.error(f"Failed to fetch weapons from API: {e}", exc_info=True)
+            return None
         
         if not weapons:
-            logger.error("No weapons available for random build generation")
+            logger.error(f"No weapons available for random build generation (API returned empty list for lang={lang})")
             return None
         
         # Фильтруем только реальное оружие (не гранатометы, сигнальные пистолеты и т.д.)

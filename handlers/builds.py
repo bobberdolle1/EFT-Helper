@@ -243,7 +243,6 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
     # Handle random builds separately - don't use static builds table
     if build_type == "random":
         # Random builds should use dynamic generation from main menu
-        # This callback is for static builds only (meta, quest, loyalty)
         message_text = (
             "🎲 Для случайной сборки используйте кнопку **\"Случайная сборка\"** в главном меню.\n\n"
             "Она генерирует совершенно новую сборку каждый раз, не используя готовые шаблоны."
@@ -255,10 +254,14 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
         await callback.answer()
         return
     
-    # Get builds by weapon and category (only for meta, quest, loyalty)
+    # Constructor and budget builds are handled by budget_constructor.py router
+    if build_type in ["constructor", "budget"]:
+        # These callbacks are handled by budget_constructor router
+        return
+    
+    # Get builds by weapon and category (only for meta, loyalty)
     category_map = {
         "meta": BuildCategory.META,
-        "quest": BuildCategory.QUEST,
         "loyalty": BuildCategory.LOYALTY
     }
     

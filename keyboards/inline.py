@@ -39,8 +39,14 @@ def get_build_type_keyboard(weapon_id: int, language: str = "ru") -> InlineKeybo
             ],
             [
                 InlineKeyboardButton(
-                    text=get_text("quest_build_btn", language),
-                    callback_data=f"build:quest:{weapon_id}"
+                    text=get_text("constructor_btn", language),
+                    callback_data=f"build:constructor:{weapon_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=get_text("budget_build_btn", language),
+                    callback_data=f"build:budget:{weapon_id}"
                 )
             ],
             [

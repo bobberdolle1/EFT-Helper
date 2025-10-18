@@ -19,6 +19,7 @@ class TarkovAPIClient:
         self.cache = {}
         self.cache_duration = timedelta(hours=cache_duration_hours)
         self._session: Optional[aiohttp.ClientSession] = None
+        self._invalid_item_ids = set()  # Track items that don't exist in API
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -66,10 +67,20 @@ class TarkovAPIClient:
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
                 if response.status == 200:
-                    data = await response.json()
-                    return data.get("data")
+                    result = await response.json()
+                    
+                    # Check for GraphQL errors
+                    if "errors" in result:
+                        logger.error(f"GraphQL errors: {result['errors']}")
+                        return None
+                    
+                    data = result.get("data")
+                    if not data:
+                        logger.warning(f"API returned empty data. Full response: {result}")
+                    return data
                 else:
-                    logger.warning(f"Tarkov.dev API returned status {response.status}")
+                    response_text = await response.text()
+                    logger.warning(f"Tarkov.dev API returned status {response.status}: {response_text[:200]}")
                     return None
         except aiohttp.ClientError as e:
             logger.error(f"Tarkov.dev API connection error: {e}")
@@ -97,7 +108,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            items(lang: "{lang}", types: [gun], limit: 200) {{
+            items(lang: {lang}, types: [gun], limit: 200) {{
                 id
                 name
                 shortName
@@ -115,7 +126,6 @@ class TarkovAPIClient:
                         recoilVertical
                         recoilHorizontal
                         fireRate
-                        velocity
                         defaultWidth
                         defaultHeight
                         defaultPreset {{
@@ -202,7 +212,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            items(lang: "{lang}", limit: 5000, types: [mods, suppressor, sight, scope, stock, grip, magazine]) {{
+            items(lang: {lang}, limit: 5000, types: [mods, suppressor, sight, scope, stock, grip, magazine]) {{
                 id
                 name
                 shortName
@@ -273,7 +283,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            tasks(lang: "{lang}") {{
+            tasks(lang: {lang}) {{
                 id
                 name
                 normalizedName
@@ -477,13 +487,16 @@ class TarkovAPIClient:
         """
         
         data = await self._make_graphql_request(query)
-        if data and "item" in data:
+        if data and "item" in data and data["item"]:
             weapon_data = data["item"]
             self._set_cache(cache_key, weapon_data)
             logger.info(f"Fetched details for weapon {weapon_id}")
             return weapon_data
-        
-        return None
+        else:
+            # Item doesn't exist, cache this info to avoid repeated requests
+            self._invalid_item_ids.add(weapon_id)
+            logger.debug(f"Weapon {weapon_id} not found in API, marked as invalid")
+            return None
     
     def clear_cache(self):
         """Clear all cached data."""

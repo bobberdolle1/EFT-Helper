@@ -461,7 +461,12 @@ async def start_bot():
     from aiogram import Bot, Dispatcher
     from aiogram.fsm.storage.memory import MemoryStorage
     from database.config import settings
-    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler
+    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler, dynamic_builds, budget_constructor
+    from services.user_service import UserService
+    from services.build_service import BuildService
+    from services.random_build_service import RandomBuildService
+    from api_clients import TarkovAPIClient
+    from services.weapon_service import WeaponService
     
     # Configure logging
     logging.basicConfig(
@@ -473,6 +478,9 @@ async def start_bot():
     # Database already initialized
     from database import Database
     db = Database("data/eft_helper.db")
+    
+    # Initialize API client once (shared across all requests)
+    api_client = TarkovAPIClient()
     
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
@@ -486,20 +494,19 @@ async def start_bot():
     dp.include_router(loyalty.router)
     dp.include_router(tier_list.router)
     dp.include_router(settings_handler.router)
+    dp.include_router(dynamic_builds.router)
+    dp.include_router(budget_constructor.router)
     
     # Middleware to inject db and services into handlers
     @dp.update.outer_middleware()
     async def db_middleware(handler, event, data):
-        from services.user_service import UserService
-        from services.build_service import BuildService
-        from services.random_build_service import RandomBuildService
-        from api_clients import TarkovAPIClient
-        
-        api_client = TarkovAPIClient()
+        # Use the shared API client instead of creating a new one
         data["db"] = db
         data["user_service"] = UserService(db)
         data["build_service"] = BuildService(db, api_client)
-        data["random_build_service"] = RandomBuildService(db)
+        data["random_build_service"] = RandomBuildService(api_client)
+        data["api_client"] = api_client
+        data["weapon_service"] = WeaponService(db, api_client)
         return await handler(event, data)
     
     # Global error handler
@@ -515,7 +522,9 @@ async def start_bot():
         # Start polling
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        # Clean up resources
         await bot.session.close()
+        await api_client.close()
         logger.info("Bot stopped")
 
 
