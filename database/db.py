@@ -28,7 +28,13 @@ class Database:
                     name_en TEXT NOT NULL,
                     category TEXT NOT NULL,
                     tier_rating TEXT,
-                    base_price INTEGER DEFAULT 0
+                    base_price INTEGER DEFAULT 0,
+                    caliber TEXT,
+                    ergonomics INTEGER,
+                    recoil_vertical INTEGER,
+                    recoil_horizontal INTEGER,
+                    fire_rate INTEGER,
+                    effective_range INTEGER
                 )
             """)
             
@@ -159,7 +165,9 @@ class Database:
         """Get weapon by ID."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT id, name_ru, name_en, category, tier_rating, base_price FROM weapons WHERE id = ?",
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
+                   FROM weapons WHERE id = ?""",
                 (weapon_id,)
             ) as cursor:
                 row = await cursor.fetchone()
@@ -170,7 +178,13 @@ class Database:
                         name_en=row[2],
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
-                        base_price=row[5]
+                        base_price=row[5],
+                        caliber=row[6],
+                        ergonomics=row[7],
+                        recoil_vertical=row[8],
+                        recoil_horizontal=row[9],
+                        fire_rate=row[10],
+                        effective_range=row[11]
                     )
                 return None
     
@@ -183,7 +197,8 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             # Поиск в обоих языках для лучшего UX
             async with db.execute(
-                """SELECT id, name_ru, name_en, category, tier_rating, base_price 
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
                    FROM weapons 
                    WHERE name_ru LIKE ? OR name_en LIKE ? 
                    LIMIT 10""",
@@ -197,7 +212,13 @@ class Database:
                         name_en=row[2],
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
-                        base_price=row[5]
+                        base_price=row[5],
+                        caliber=row[6],
+                        ergonomics=row[7],
+                        recoil_vertical=row[8],
+                        recoil_horizontal=row[9],
+                        fire_rate=row[10],
+                        effective_range=row[11]
                     )
                     for row in rows
                 ]
@@ -206,7 +227,9 @@ class Database:
         """Get all weapons."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT id, name_ru, name_en, category, tier_rating, base_price FROM weapons"
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price,
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
+                   FROM weapons"""
             ) as cursor:
                 rows = await cursor.fetchall()
                 return [
@@ -216,7 +239,13 @@ class Database:
                         name_en=row[2],
                         category=WeaponCategory(row[3]),
                         tier_rating=TierRating(row[4]) if row[4] else None,
-                        base_price=row[5]
+                        base_price=row[5],
+                        caliber=row[6],
+                        ergonomics=row[7],
+                        recoil_vertical=row[8],
+                        recoil_horizontal=row[9],
+                        fire_rate=row[10],
+                        effective_range=row[11]
                     )
                     for row in rows
                 ]

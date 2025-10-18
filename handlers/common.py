@@ -11,9 +11,9 @@ router = Router()
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message, db: Database):
+async def cmd_start(message: Message, user_service):
     """Handle /start command."""
-    user = await db.get_or_create_user(message.from_user.id)
+    user = await user_service.get_or_create_user(message.from_user.id)
     
     welcome_text = get_text("welcome", user.language)
     keyboard = get_main_menu_keyboard(user.language)
@@ -22,9 +22,9 @@ async def cmd_start(message: Message, db: Database):
 
 
 @router.message(F.text.in_([get_text("main_menu", "ru"), get_text("main_menu", "en")]))
-async def show_main_menu(message: Message, db: Database):
+async def show_main_menu(message: Message, user_service):
     """Show main menu."""
-    user = await db.get_or_create_user(message.from_user.id)
+    user = await user_service.get_or_create_user(message.from_user.id)
     
     menu_text = get_text("welcome", user.language)
     keyboard = get_main_menu_keyboard(user.language)

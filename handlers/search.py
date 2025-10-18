@@ -47,9 +47,9 @@ def get_category_selection_keyboard(language: str = "ru") -> InlineKeyboardMarku
 
 
 @router.message(F.text.in_([get_text("search_weapon", "ru"), get_text("search_weapon", "en")]))
-async def start_search(message: Message, state: FSMContext, db: Database):
+async def start_search(message: Message, state: FSMContext, user_service):
     """Start weapon search - show category selection."""
-    user = await db.get_or_create_user(message.from_user.id)
+    user = await user_service.get_or_create_user(message.from_user.id)
     
     text = get_text("select_category", language=user.language)
     keyboard = get_category_selection_keyboard(user.language)
@@ -58,14 +58,15 @@ async def start_search(message: Message, state: FSMContext, db: Database):
 
 
 @router.callback_query(F.data.startswith("category:"))
-async def show_category_weapons(callback: CallbackQuery, db: Database):
+async def show_category_weapons(callback: CallbackQuery, user_service, weapon_service):
     """Show weapons in selected category."""
-    user = await db.get_or_create_user(callback.from_user.id)
+    user = await user_service.get_or_create_user(callback.from_user.id)
     category = callback.data.split(":")[1]
     
-    # Get all weapons from database in this category
-    all_weapons = await db.get_all_weapons()
-    category_weapons = [w for w in all_weapons if w.category.value == category]
+    # Get all weapons from service in this category
+    from database import WeaponCategory
+    category_enum = WeaponCategory(category)
+    category_weapons = await weapon_service.get_weapons_by_category(category_enum)
     
     if not category_weapons:
         await callback.message.edit_text(get_text("no_weapons_found", language=user.language))
@@ -80,9 +81,9 @@ async def show_category_weapons(callback: CallbackQuery, db: Database):
 
 
 @router.callback_query(F.data == "search_by_name")
-async def search_by_name_prompt(callback: CallbackQuery, state: FSMContext, db: Database):
+async def search_by_name_prompt(callback: CallbackQuery, state: FSMContext, user_service):
     """Prompt user to enter weapon name."""
-    user = await db.get_or_create_user(callback.from_user.id)
+    user = await user_service.get_or_create_user(callback.from_user.id)
     
     await state.set_state(SearchStates.waiting_for_weapon_name)
     await callback.message.edit_text(get_text("enter_weapon_name", language=user.language))
@@ -90,30 +91,13 @@ async def search_by_name_prompt(callback: CallbackQuery, state: FSMContext, db: 
 
 
 @router.message(SearchStates.waiting_for_weapon_name)
-async def process_weapon_search(message: Message, state: FSMContext, db: Database):
+async def process_weapon_search(message: Message, state: FSMContext, user_service, weapon_service):
     """Process weapon search query - supports both Russian and English names."""
-    user = await db.get_or_create_user(message.from_user.id)
+    user = await user_service.get_or_create_user(message.from_user.id)
     query = message.text.strip()
     
-    # Search for weapons in both languages
-    all_weapons = await db.get_all_weapons()
-    
-    # Normalize query for better matching
-    query_lower = query.lower()
-    
-    # Search in both Russian and English names
-    matching_weapons = []
-    for weapon in all_weapons:
-        name_ru_lower = weapon.name_ru.lower()
-        name_en_lower = weapon.name_en.lower()
-        
-        if (query_lower in name_ru_lower or 
-            query_lower in name_en_lower or
-            query_lower.replace('-', '') in name_ru_lower.replace('-', '') or
-            query_lower.replace('-', '') in name_en_lower.replace('-', '')):
-            matching_weapons.append(weapon)
-    
-    weapons = matching_weapons
+    # Search for weapons using service
+    weapons = await weapon_service.search_weapons(query, user.language)
     
     if not weapons:
         await message.answer(get_text("weapon_not_found", user.language))
@@ -136,12 +120,12 @@ async def process_weapon_search(message: Message, state: FSMContext, db: Databas
 
 
 @router.callback_query(F.data.startswith("weapon:"))
-async def select_weapon(callback: CallbackQuery, db: Database):
+async def select_weapon(callback: CallbackQuery, user_service, weapon_service):
     """Handle weapon selection."""
-    user = await db.get_or_create_user(callback.from_user.id)
+    user = await user_service.get_or_create_user(callback.from_user.id)
     weapon_id = int(callback.data.split(":")[1])
     
-    weapon = await db.get_weapon_by_id(weapon_id)
+    weapon = await weapon_service.get_weapon_by_id(weapon_id)
     if not weapon:
         await callback.answer(get_text("error", user.language))
         return

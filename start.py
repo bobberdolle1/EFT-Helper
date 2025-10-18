@@ -2,41 +2,29 @@
 import asyncio
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 async def check_env_file():
-    """Проверка наличия .env файла."""
-    print("🔍 Проверка файла конфигурации...")
+    """Проверка наличия BOT_TOKEN в переменных окружения."""
+    print("🔍 Проверка конфигурации...")
     
-    if not os.path.exists(".env"):
-        print("❌ Файл .env не найден!")
-        print("\n📝 Создание .env из .env.example...")
-        
-        if os.path.exists(".env.example"):
-            with open(".env.example", "r", encoding="utf-8") as example:
-                content = example.read()
-            
-            with open(".env", "w", encoding="utf-8") as env:
-                env.write(content)
-            
-            print("✅ Файл .env создан")
-            print("\n⚠️  ВНИМАНИЕ! Отредактируйте файл .env и укажите ваш BOT_TOKEN")
-            print("   Получите токен у @BotFather в Telegram")
-            input("\nНажмите Enter после настройки .env...")
-        else:
-            print("❌ Файл .env.example не найден!")
-            return False
-    else:
-        print("✅ Файл .env найден")
+    # Проверяем переменную окружения BOT_TOKEN
+    bot_token = os.getenv("BOT_TOKEN", "")
     
-    # Проверка что токен указан
-    with open(".env", "r", encoding="utf-8") as f:
-        content = f.read()
-        if "your_telegram_bot_token_here" in content or "BOT_TOKEN=" not in content:
-            print("❌ BOT_TOKEN не настроен в файле .env!")
-            print("   Откройте .env и укажите ваш токен от @BotFather")
-            return False
+    if not bot_token or bot_token == "your_telegram_bot_token_here":
+        print("❌ BOT_TOKEN не настроен!")
+        print("\n📝 Создайте файл .env в корне проекта:")
+        print("   BOT_TOKEN=your_telegram_bot_token_here")
+        print("   ADMIN_IDS=123456789")
+        print("\n   Получите токен у @BotFather в Telegram")
+        print("\n   После настройки перезапустите: docker-compose restart")
+        return False
     
+    print("✅ BOT_TOKEN найден")
     return True
 
 
@@ -49,13 +37,13 @@ async def migrate_database():
     db_path = DEFAULT_DB_PATH
     
     async with aiosqlite.connect(db_path) as db:
-        # Проверяем, существует ли колонка trader_levels
+        # Миграция 1: Добавление trader_levels в users
         async with db.execute("PRAGMA table_info(users)") as cursor:
             columns = await cursor.fetchall()
             column_names = [col[1] for col in columns]
         
         if "trader_levels" not in column_names:
-            print("   📝 Обновление схемы базы данных...")
+            print("   📝 Миграция: добавление trader_levels...")
             
             # Добавляем новую колонку
             await db.execute("ALTER TABLE users ADD COLUMN trader_levels TEXT")
@@ -69,7 +57,37 @@ async def migrate_database():
             )
             
             await db.commit()
-            print("   ✅ Схема базы данных обновлена")
+            print("   ✅ trader_levels добавлен")
+        
+        # Миграция 2: Добавление характеристик оружия
+        async with db.execute("PRAGMA table_info(weapons)") as cursor:
+            columns = await cursor.fetchall()
+            weapon_columns = [col[1] for col in columns]
+        
+        weapon_stats_columns = [
+            ("caliber", "TEXT"),
+            ("ergonomics", "INTEGER"),
+            ("recoil_vertical", "INTEGER"),
+            ("recoil_horizontal", "INTEGER"),
+            ("fire_rate", "INTEGER"),
+            ("effective_range", "INTEGER")
+        ]
+        
+        migration_needed = False
+        for col_name, col_type in weapon_stats_columns:
+            if col_name not in weapon_columns:
+                if not migration_needed:
+                    print("   📝 Миграция: добавление характеристик оружия...")
+                    migration_needed = True
+                try:
+                    await db.execute(f"ALTER TABLE weapons ADD COLUMN {col_name} {col_type}")
+                    print(f"   ✅ {col_name} добавлен")
+                except Exception as e:
+                    print(f"   ⚠️  Ошибка при добавлении {col_name}: {e}")
+        
+        if migration_needed:
+            await db.commit()
+            print("   ✅ Характеристики оружия добавлены")
 
 
 async def init_database():
@@ -236,7 +254,6 @@ async def main():
     # 1. Проверка .env файла
     if not await check_env_file():
         print("\n❌ Запуск прерван. Настройте .env файл и запустите снова.")
-        input("\nНажмите Enter для выхода...")
         return
     
     # 2. Инициализация базы данных
@@ -257,7 +274,6 @@ async def main():
         if not success:
             print("❌ Не удалось заполнить базу данных.")
             print("   Попробуйте запустить вручную: python populate_db.py")
-            input("\nНажмите Enter для выхода...")
             return
         
         print("\n💡 Подсказка: для получения актуальных данных из tarkov.dev API")
@@ -280,4 +296,3 @@ if __name__ == "__main__":
         print(f"\n\n❌ Критическая ошибка: {e}")
         import traceback
         traceback.print_exc()
-        input("\nНажмите Enter для выхода...")

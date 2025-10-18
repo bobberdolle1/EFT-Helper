@@ -1,8 +1,0 @@
-# EFT Helper Bot - Requirements
-# Для установки через pip: pip install -r requirements.txt
-# Рекомендуется использовать Poetry: poetry install
-
-aiogram>=3.15.0
-aiosqlite==0.20.0
-python-dotenv==1.0.1
-aiohttp>=3.9.0

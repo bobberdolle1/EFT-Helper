@@ -11,14 +11,21 @@ WORKDIR /app
 # Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем файлы зависимостей
-COPY requirements.txt pyproject.toml ./
-
-# Устанавливаем Python зависимости
+# Устанавливаем Poetry
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir poetry==1.8.3
+
+# Настраиваем Poetry (не создавать виртуальное окружение в контейнере)
+RUN poetry config virtualenvs.create false
+
+# Копируем файлы зависимостей Poetry
+COPY pyproject.toml poetry.lock* ./
+
+# Устанавливаем зависимости через Poetry
+RUN poetry install --no-interaction --no-ansi --only main
 
 # Копируем весь проект
 COPY . .

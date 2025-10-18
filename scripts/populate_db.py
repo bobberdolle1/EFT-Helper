@@ -44,28 +44,32 @@ async def populate_sample_data(db: Database):
             )
         await conn.commit()
         
-        # Add weapons
+        # Add weapons with characteristics
         print("   🔫 Добавление оружия...")
+        # Format: name_ru, name_en, category, tier_rating, base_price, caliber, ergonomics, recoil_v, recoil_h, fire_rate, eff_range
         weapons = [
-            ("AK-74N", "AK-74N", WeaponCategory.ASSAULT_RIFLE.value, TierRating.A_TIER.value, 35000),
-            ("AK-74M", "AK-74M", WeaponCategory.ASSAULT_RIFLE.value, TierRating.A_TIER.value, 42000),
-            ("AKM", "AKM", WeaponCategory.ASSAULT_RIFLE.value, TierRating.B_TIER.value, 38000),
-            ("M4A1", "M4A1", WeaponCategory.ASSAULT_RIFLE.value, TierRating.S_TIER.value, 65000),
-            ("HK 416", "HK 416", WeaponCategory.ASSAULT_RIFLE.value, TierRating.S_TIER.value, 72000),
-            ("MP-153", "MP-153", WeaponCategory.SHOTGUN.value, TierRating.B_TIER.value, 15000),
-            ("MP5", "MP5", WeaponCategory.SMG.value, TierRating.A_TIER.value, 28000),
-            ("PP-19-01 Витязь", "PP-19-01 Vityaz", WeaponCategory.SMG.value, TierRating.B_TIER.value, 22000),
-            ("СВД", "SVD", WeaponCategory.DMR.value, TierRating.A_TIER.value, 55000),
-            ("Мосин", "Mosin", WeaponCategory.SNIPER.value, TierRating.C_TIER.value, 25000),
-            ("СВ-98", "SV-98", WeaponCategory.SNIPER.value, TierRating.B_TIER.value, 48000),
-            ("ПМ", "PM", WeaponCategory.PISTOL.value, TierRating.D_TIER.value, 5000),
-            ("Glock 17", "Glock 17", WeaponCategory.PISTOL.value, TierRating.B_TIER.value, 12000),
-            ("ПКМ", "PKM", WeaponCategory.LMG.value, TierRating.A_TIER.value, 95000),
+            ("AK-74N", "AK-74N", WeaponCategory.ASSAULT_RIFLE.value, TierRating.A_TIER.value, 35000, "5.45x39mm", 42, 180, 85, 650, 400),
+            ("AK-74M", "AK-74M", WeaponCategory.ASSAULT_RIFLE.value, TierRating.A_TIER.value, 42000, "5.45x39mm", 45, 175, 82, 650, 400),
+            ("AKM", "AKM", WeaponCategory.ASSAULT_RIFLE.value, TierRating.B_TIER.value, 38000, "7.62x39mm", 38, 230, 110, 600, 400),
+            ("M4A1", "M4A1", WeaponCategory.ASSAULT_RIFLE.value, TierRating.S_TIER.value, 65000, "5.56x45mm", 55, 120, 65, 800, 400),
+            ("HK 416", "HK 416", WeaponCategory.ASSAULT_RIFLE.value, TierRating.S_TIER.value, 72000, "5.56x45mm", 58, 110, 62, 850, 400),
+            ("MP-153", "MP-153", WeaponCategory.SHOTGUN.value, TierRating.B_TIER.value, 15000, "12ga", 35, 280, 150, 30, 50),
+            ("MP5", "MP5", WeaponCategory.SMG.value, TierRating.A_TIER.value, 28000, "9x19mm", 65, 95, 48, 800, 100),
+            ("PP-19-01 Витязь", "PP-19-01 Vityaz", WeaponCategory.SMG.value, TierRating.B_TIER.value, 22000, "9x19mm", 58, 105, 52, 700, 100),
+            ("СВД", "SVD", WeaponCategory.DMR.value, TierRating.A_TIER.value, 55000, "7.62x54mmR", 22, 320, 160, 600, 800),
+            ("Мосин", "Mosin", WeaponCategory.SNIPER.value, TierRating.C_TIER.value, 25000, "7.62x54mmR", 15, 380, 180, 30, 800),
+            ("СВ-98", "SV-98", WeaponCategory.SNIPER.value, TierRating.B_TIER.value, 48000, "7.62x54mmR", 18, 350, 170, 30, 800),
+            ("ПМ", "PM", WeaponCategory.PISTOL.value, TierRating.D_TIER.value, 5000, "9x18mm", 75, 140, 75, 30, 50),
+            ("Glock 17", "Glock 17", WeaponCategory.PISTOL.value, TierRating.B_TIER.value, 12000, "9x19mm", 85, 95, 50, 30, 100),
+            ("ПКМ", "PKM", WeaponCategory.LMG.value, TierRating.A_TIER.value, 95000, "7.62x54mmR", 25, 280, 145, 650, 600),
         ]
         
         for weapon in weapons:
             await conn.execute(
-                "INSERT INTO weapons (name_ru, name_en, category, tier_rating, base_price) VALUES (?, ?, ?, ?, ?)",
+                """INSERT INTO weapons 
+                (name_ru, name_en, category, tier_rating, base_price, caliber, ergonomics, 
+                 recoil_vertical, recoil_horizontal, fire_rate, effective_range) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 weapon
             )
         await conn.commit()

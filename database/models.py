@@ -41,6 +41,13 @@ class Weapon:
     category: WeaponCategory
     tier_rating: Optional[TierRating] = None
     base_price: int = 0
+    # Weapon characteristics
+    caliber: Optional[str] = None
+    ergonomics: Optional[int] = None
+    recoil_vertical: Optional[int] = None
+    recoil_horizontal: Optional[int] = None
+    fire_rate: Optional[int] = None
+    effective_range: Optional[int] = None
 
 
 @dataclass

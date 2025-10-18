@@ -29,26 +29,56 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
     
     text += "\n"
     
-    # Modules list
-    if modules:
-        text += get_text("build_modules", language) + "\n"
-        for module in modules:
-            module_name = module.name_ru if language == "ru" else module.name_en
-            trader_emoji = get_trader_emoji(module.trader)
-            text += f"  • {module_name}\n"
-            text += f"    {trader_emoji} {module.trader} (LL{module.loyalty_level}) - {module.price:,} ₽\n"
+    # Weapon characteristics
+    if weapon.caliber or weapon.ergonomics or weapon.recoil_vertical:
+        text += "📊 **" + ("Характеристики оружия" if language == "ru" else "Weapon Stats") + ":**\n"
+        if weapon.caliber:
+            text += f"  🔸 " + ("Калибр" if language == "ru" else "Caliber") + f": {weapon.caliber}\n"
+        if weapon.ergonomics is not None:
+            text += f"  🔸 " + ("Эргономика" if language == "ru" else "Ergonomics") + f": {weapon.ergonomics}\n"
+        if weapon.recoil_vertical is not None:
+            text += f"  🔸 " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": {weapon.recoil_vertical}\n"
+        if weapon.recoil_horizontal is not None:
+            text += f"  🔸 " + ("Горизонтальная отдача" if language == "ru" else "Horizontal Recoil") + f": {weapon.recoil_horizontal}\n"
+        if weapon.fire_rate is not None:
+            text += f"  🔸 " + ("Скорострельность" if language == "ru" else "Fire Rate") + f": {weapon.fire_rate} RPM\n"
+        if weapon.effective_range is not None:
+            text += f"  🔸 " + ("Эффективная дальность" if language == "ru" else "Effective Range") + f": {weapon.effective_range}m\n"
+        text += "\n"
     
-    text += "\n"
+    # Modules list grouped by trader
+    if modules:
+        text += "🔧 **" + ("Модули и запчасти" if language == "ru" else "Modules & Parts") + ":**\n"
+        
+        # Group modules by trader
+        from collections import defaultdict
+        modules_by_trader = defaultdict(list)
+        for module in modules:
+            modules_by_trader[module.trader].append(module)
+        
+        # Display modules grouped by trader
+        for trader, trader_modules in sorted(modules_by_trader.items()):
+            trader_emoji = get_trader_emoji(trader)
+            max_ll = max(m.loyalty_level for m in trader_modules)
+            text += f"\n{trader_emoji} **{trader}** (" + ("Требуется LL" if language == "ru" else "Required LL") + f" {max_ll})**:**\n"
+            
+            for module in trader_modules:
+                module_name = module.name_ru if language == "ru" else module.name_en
+                slot_name = f" [{module.slot_type}]" if module.slot_type else ""
+                text += f"  • {module_name}{slot_name}\n"
+                text += f"    💰 {module.price:,} ₽ | LL{module.loyalty_level}\n"
+        
+        text += "\n"
     
     # Total cost
-    text += get_text("build_total_cost", language, cost=f"{build.total_cost:,}") + "\n"
+    text += "💵 **" + get_text("build_total_cost", language, cost=f"{build.total_cost:,}") + "**\n"
     
     # Minimum loyalty level
-    text += get_text("build_loyalty", language, level=build.min_loyalty_level) + "\n"
+    text += "⭐ " + ("Минимальный уровень лояльности" if language == "ru" else "Minimum loyalty level") + f": **{build.min_loyalty_level}**\n"
     
     # Planner link
     if build.planner_link:
-        text += "\n" + get_text("build_planner", language, link=build.planner_link)
+        text += "\n🔗 " + get_text("build_planner", language, link=build.planner_link)
     
     return text
 
