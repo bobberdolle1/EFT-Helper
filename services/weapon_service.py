@@ -16,7 +16,8 @@ class WeaponService:
     
     async def search_weapons(self, query: str, language: str = "ru") -> List[Weapon]:
         """
-        Search weapons by name in both Russian and English.
+        Search weapons by name using API for full weapon list with localization.
+        Falls back to database if API fails.
         
         Args:
             query: Search term
@@ -25,6 +26,39 @@ class WeaponService:
         Returns:
             List of matching weapons
         """
+        # Try to get weapons from API for comprehensive search
+        try:
+            api_weapons = await self.api.get_all_weapons(lang=language)
+            if api_weapons:
+                query_lower = query.lower()
+                matching_weapons = []
+                
+                for api_weapon in api_weapons:
+                    weapon_name = api_weapon.get("name", "").lower()
+                    weapon_short = api_weapon.get("shortName", "").lower()
+                    weapon_normalized = api_weapon.get("normalizedName", "").lower()
+                    
+                    # Check if query matches name, shortName, or normalized name
+                    if (query_lower in weapon_name or 
+                        query_lower in weapon_short or 
+                        query_lower in weapon_normalized):
+                        
+                        # Try to find in database first
+                        db_weapons = await self.db.search_weapons(query, language)
+                        for db_weapon in db_weapons:
+                            # Match by name
+                            if (db_weapon.name_en.lower() == weapon_name or 
+                                db_weapon.name_ru.lower() == weapon_name or
+                                api_weapon.get("id") == str(db_weapon.id)):
+                                matching_weapons.append(db_weapon)
+                                break
+                
+                if matching_weapons:
+                    return matching_weapons[:10]  # Limit to 10 results
+        except Exception as e:
+            logger.error(f"Error searching weapons via API: {e}")
+        
+        # Fallback to database search
         return await self.db.search_weapons(query, language)
     
     async def get_weapon_by_id(self, weapon_id: int) -> Optional[Weapon]:

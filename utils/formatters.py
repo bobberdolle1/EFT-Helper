@@ -3,24 +3,27 @@ from database import Build, Weapon, Module
 from localization import get_text
 from typing import List
 from .constants import TRADER_EMOJIS
+from .localization_helpers import localize_trader_name
 
 
 async def format_build_card(build: Build, weapon: Weapon, modules: List[Module], language: str = "ru") -> str:
     """Format a build card for display."""
     weapon_name = weapon.name_ru if language == "ru" else weapon.name_en
     
-    # Title
-    text = get_text("build_card_title", language, weapon=weapon_name)
+    # Title and Base Weapon (most prominent)
+    text = "="*40 + "\n"
+    text += "🔫 **" + ("БАЗОВОЕ ОРУЖИЕ" if language == "ru" else "BASE WEAPON") + ":** **" + weapon_name + "**\n"
+    text += "="*40 + "\n\n"
     
     # Category
     category_key = f"category_{build.category.value}"
     category_name = get_text(category_key, language)
-    text += get_text("build_category", language, category=category_name) + "\n"
+    text += "📂 " + ("Категория" if language == "ru" else "Category") + f": {category_name}\n"
     
     # Quest name if applicable
     if build.quest_name_ru or build.quest_name_en:
         quest_name = build.quest_name_ru if language == "ru" else build.quest_name_en
-        text += get_text("build_quest", language, quest=quest_name) + "\n"
+        text += "📜 " + ("Квест" if language == "ru" else "Quest") + f": {quest_name}\n"
     
     # Build name if applicable
     if build.name_ru or build.name_en:
@@ -30,12 +33,9 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
     text += "\n"
     
     # Weapon characteristics - ENHANCED
-    text += "\n" + "="*40 + "\n"
-    text += "📊 **" + ("ХАРАКТЕРИСТИКИ СБОРКИ" if language == "ru" else "BUILD CHARACTERISTICS") + ":**\n"
-    text += "="*40 + "\n\n"
+    text += "📊 **" + ("ХАРАКТЕРИСТИКИ ОРУЖИЯ" if language == "ru" else "WEAPON CHARACTERISTICS") + ":**\n\n"
     
-    # Base weapon info
-    text += "🔫 **" + ("Базовое оружие" if language == "ru" else "Base Weapon") + ":**\n"
+    # Base weapon stats
     if weapon.caliber:
         text += f"  • " + ("Калибр" if language == "ru" else "Caliber") + f": **{weapon.caliber}**\n"
     if weapon.tier_rating:
@@ -83,7 +83,8 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
         for trader, trader_modules in sorted(modules_by_trader.items()):
             trader_emoji = get_trader_emoji(trader)
             max_ll = max(m.loyalty_level for m in trader_modules)
-            text += f"\n{trader_emoji} **{trader}** (" + ("Требуется LL" if language == "ru" else "Required LL") + f" {max_ll})**:**\n"
+            localized_trader = localize_trader_name(trader, language)
+            text += f"\n{trader_emoji} **{localized_trader}** (" + ("Требуется LL" if language == "ru" else "Required LL") + f" {max_ll})**:**\n"
             
             for module in trader_modules:
                 module_name = module.name_ru if language == "ru" else module.name_en
@@ -107,10 +108,6 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
     
     # Minimum loyalty level
     text += "⭐ " + ("Минимальный уровень лояльности" if language == "ru" else "Minimum loyalty level") + f": **{build.min_loyalty_level}**\n"
-    
-    # Planner link
-    if build.planner_link:
-        text += "\n🔗 " + get_text("build_planner", language, link=build.planner_link)
     
     return text
 

@@ -128,15 +128,18 @@ class RandomBuildService:
         
         return selected_mod
     
-    async def generate_random_build_for_random_weapon(self) -> Optional[Dict]:
+    async def generate_random_build_for_random_weapon(self, lang: str = "en") -> Optional[Dict]:
         """
         Генерирует случайную сборку для случайного оружия.
+        
+        Args:
+            lang: Language code ("ru" or "en")
         
         Returns:
             Словарь с информацией о сборке или None
         """
-        # Получаем список всех оружий
-        weapons = await self.api.get_all_weapons()
+        # Получаем список всех оружий с локализацией
+        weapons = await self.api.get_all_weapons(lang=lang)
         
         if not weapons:
             logger.error("No weapons available for random build generation")

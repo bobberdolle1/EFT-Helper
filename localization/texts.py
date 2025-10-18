@@ -107,6 +107,17 @@ TEXTS = {
         "mechanic": "Механик",
         "ragman": "Барыга",
         "jaeger": "Егерь",
+        "lightkeeper": "Смотритель",
+        # Trader names mapping (for API responses)
+        "trader_prapor": "Прапор",
+        "trader_therapist": "Терапевт",
+        "trader_fence": "Барахольщик",
+        "trader_skier": "Лыжник",
+        "trader_peacekeeper": "Миротворец",
+        "trader_mechanic": "Механик",
+        "trader_ragman": "Барыга",
+        "trader_jaeger": "Егерь",
+        "trader_lightkeeper": "Смотритель",
         
         # Categories
         "assault_rifle": "Штурмовая винтовка",
@@ -245,6 +256,17 @@ TEXTS = {
         "mechanic": "Mechanic",
         "ragman": "Ragman",
         "jaeger": "Jaeger",
+        "lightkeeper": "Lightkeeper",
+        # Trader names mapping (for API responses)
+        "trader_prapor": "Prapor",
+        "trader_therapist": "Therapist",
+        "trader_fence": "Fence",
+        "trader_skier": "Skier",
+        "trader_peacekeeper": "Peacekeeper",
+        "trader_mechanic": "Mechanic",
+        "trader_ragman": "Ragman",
+        "trader_jaeger": "Jaeger",
+        "trader_lightkeeper": "Lightkeeper",
         
         # Categories
         "assault_rifle": "Assault Rifle",

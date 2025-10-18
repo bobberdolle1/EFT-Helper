@@ -81,48 +81,51 @@ class TarkovAPIClient:
             logger.error(f"Tarkov.dev API unexpected error: {e}", exc_info=True)
             return None
     
-    async def get_all_weapons(self) -> List[Dict]:
+    async def get_all_weapons(self, lang: str = "en") -> List[Dict]:
         """
-        Get all weapons from tarkov.dev API.
-        Result is cached for 24 hours.
+        Get all weapons from tarkov.dev API with localized names.
+        Result is cached for 24 hours per language.
+        
+        Args:
+            lang: Language code ("ru" or "en")
         """
-        cache_key = "all_weapons"
+        cache_key = f"all_weapons_{lang}"
         cached = self._get_cached(cache_key)
         if cached is not None:
-            logger.debug("Returning cached weapons data")
+            logger.debug(f"Returning cached weapons data for lang={lang}")
             return cached
         
-        query = """
-        {
-            items(types: [gun]) {
+        query = f"""
+        {{
+            items(lang: "{lang}", types: [gun]) {{
                 id
                 name
                 shortName
                 normalizedName
                 types
                 avg24hPrice
-                category {
+                category {{
                     id
                     name
-                }
-                properties {
-                    ... on ItemPropertiesWeapon {
+                }}
+                properties {{
+                    ... on ItemPropertiesWeapon {{
                         caliber
                         ergonomics
                         recoilVertical
                         recoilHorizontal
                         fireRate
-                    }
-                }
-            }
-        }
+                    }}
+                }}
+            }}
+        }}
         """
         
         data = await self._make_graphql_request(query)
         if data and "items" in data:
             weapons = data["items"]
             self._set_cache(cache_key, weapons)
-            logger.info(f"Fetched {len(weapons)} weapons from API")
+            logger.info(f"Fetched {len(weapons)} weapons from API for lang={lang}")
             return weapons
         
         return []
@@ -159,39 +162,43 @@ class TarkovAPIClient:
         
         return []
     
-    async def get_all_mods(self) -> List[Dict]:
-        """Get all weapon modifications."""
-        cache_key = "all_mods"
+    async def get_all_mods(self, lang: str = "en") -> List[Dict]:
+        """Get all weapon modifications with localized names.
+        
+        Args:
+            lang: Language code ("ru" or "en")
+        """
+        cache_key = f"all_mods_{lang}"
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached
         
-        query = """
-        {
-            items(limit: 5000, types: [mods, suppressor, sight, scope, stock, grip, magazine]) {
+        query = f"""
+        {{
+            items(lang: "{lang}", limit: 5000, types: [mods, suppressor, sight, scope, stock, grip, magazine]) {{
                 id
                 name
                 shortName
                 avg24hPrice
                 types
-                sellFor {
-                    vendor {
+                sellFor {{
+                    vendor {{
                         name
                         normalizedName
                         minTraderLevel
-                    }
+                    }}
                     price
                     currency
-                }
-            }
-        }
+                }}
+            }}
+        }}
         """
         
         data = await self._make_graphql_request(query)
         if data and "items" in data:
             mods = data["items"]
             self._set_cache(cache_key, mods)
-            logger.info(f"Fetched {len(mods)} mods from API")
+            logger.info(f"Fetched {len(mods)} mods from API for lang={lang}")
             return mods
         
         return []
@@ -226,63 +233,71 @@ class TarkovAPIClient:
         
         return {}
     
-    async def get_all_tasks(self) -> List[Dict]:
-        """Get all tasks/quests from tarkov.dev API."""
-        cache_key = "all_tasks"
+    async def get_all_tasks(self, lang: str = "en") -> List[Dict]:
+        """Get all tasks/quests from tarkov.dev API with localized names.
+        
+        Args:
+            lang: Language code ("ru" or "en")
+        """
+        cache_key = f"all_tasks_{lang}"
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached
         
-        query = """
-        {
-            tasks {
+        query = f"""
+        {{
+            tasks(lang: "{lang}") {{
                 id
                 name
                 normalizedName
-                trader {
+                trader {{
                     name
                     normalizedName
-                }
-                map {
+                }}
+                map {{
                     name
                     normalizedName
-                }
+                }}
                 experience
                 minPlayerLevel
-                taskRequirements {
-                    task {
+                taskRequirements {{
+                    task {{
                         id
                         name
-                    }
-                }
-                objectives {
+                    }}
+                }}
+                objectives {{
                     id
                     type
                     description
                     optional
-                }
-            }
-        }
+                }}
+            }}
+        }}
         """
         
         data = await self._make_graphql_request(query)
         if data and "tasks" in data:
             tasks = data["tasks"]
             self._set_cache(cache_key, tasks)
-            logger.info(f"Fetched {len(tasks)} tasks from API")
+            logger.info(f"Fetched {len(tasks)} tasks from API for lang={lang}")
             return tasks
         
         return []
     
-    async def get_weapon_build_tasks(self) -> List[Dict]:
-        """Get only tasks/quests related to weapon builds from Mechanic (Gunsmith, etc.)."""
-        cache_key = "weapon_build_tasks"
+    async def get_weapon_build_tasks(self, lang: str = "en") -> List[Dict]:
+        """Get only tasks/quests related to weapon builds from Mechanic (Gunsmith, etc.).
+        
+        Args:
+            lang: Language code ("ru" or "en")
+        """
+        cache_key = f"weapon_build_tasks_{lang}"
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached
         
-        # Get all tasks
-        all_tasks = await self.get_all_tasks()
+        # Get all tasks with language parameter
+        all_tasks = await self.get_all_tasks(lang=lang)
         
         # Filter tasks that require weapon builds AND are from Mechanic
         build_tasks = []
@@ -303,7 +318,7 @@ class TarkovAPIClient:
             if not trader_data:
                 continue
             trader_name = trader_data.get("name", "")
-            if trader_name.lower() != "mechanic":
+            if trader_name.lower() != "mechanic" and trader_name.lower() != "механик":
                 continue
             
             task_name = task.get("name", "").lower()
@@ -318,7 +333,7 @@ class TarkovAPIClient:
                 for obj in objectives:
                     obj_type = obj.get("type", "").lower()
                     obj_desc = obj.get("description", "").lower()
-                    if "buildweapon" in obj_type or any(kw in obj_desc for kw in ["build", "modify", "assemble"]):
+                    if "buildweapon" in obj_type or any(kw in obj_desc for kw in ["build", "modify", "assemble", "сборка", "модифицировать"]):
                         is_build_quest = True
                         break
             
@@ -326,7 +341,7 @@ class TarkovAPIClient:
                 build_tasks.append(task)
         
         self._set_cache(cache_key, build_tasks)
-        logger.info(f"Filtered {len(build_tasks)} weapon build tasks from Mechanic from {len(all_tasks)} total tasks")
+        logger.info(f"Filtered {len(build_tasks)} weapon build tasks from Mechanic from {len(all_tasks)} total tasks for lang={lang}")
         return build_tasks
     
     async def search_items(self, search_term: str, item_types: Optional[List[str]] = None) -> List[Dict]:

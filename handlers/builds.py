@@ -7,6 +7,7 @@ from database import Database, BuildCategory
 from localization import get_text
 from keyboards import get_builds_list_keyboard
 from utils.formatters import format_build_card
+from utils.localization_helpers import localize_trader_name
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,8 @@ async def show_truly_random_build(message: Message, user_service, random_build_s
     # Show loading message
     loading_msg = await message.answer(get_text("generating_truly_random", user.language))
     
-    # Generate truly random build
-    build_data = await random_build_service.generate_random_build_for_random_weapon()
+    # Generate truly random build with user's language
+    build_data = await random_build_service.generate_random_build_for_random_weapon(lang=user.language)
     
     if not build_data:
         await loading_msg.edit_text(get_text("error", user.language))
@@ -92,8 +93,8 @@ async def show_quest_builds(message: Message, user_service, api_client):
     # Show loading message
     loading_msg = await message.answer(get_text("loading_quests", user.language))
     
-    # Get only weapon build quests from API
-    tasks = await api_client.get_weapon_build_tasks()
+    # Get only weapon build quests from API with user's language
+    tasks = await api_client.get_weapon_build_tasks(lang=user.language)
     
     if not tasks:
         await loading_msg.edit_text(get_text("no_quest_builds", user.language))
@@ -156,8 +157,8 @@ async def show_all_quest_builds(message: Message, user_service, api_client):
     # Show loading message
     loading_msg = await message.answer(get_text("loading_quests", user.language))
     
-    # Get only weapon build quests from API
-    tasks = await api_client.get_weapon_build_tasks()
+    # Get only weapon build quests from API with user's language
+    tasks = await api_client.get_weapon_build_tasks(lang=user.language)
     
     if not tasks:
         await loading_msg.edit_text(get_text("no_quest_builds", user.language))
@@ -269,8 +270,8 @@ async def show_quest_detail(callback: CallbackQuery, user_service, api_client, b
     user = await user_service.get_or_create_user(callback.from_user.id)
     quest_id = callback.data.split(":")[1]
     
-    # Get weapon build tasks from API to find the specific one
-    tasks = await api_client.get_weapon_build_tasks()
+    # Get weapon build tasks from API to find the specific one with user's language
+    tasks = await api_client.get_weapon_build_tasks(lang=user.language)
     quest_data = None
     for task in tasks:
         if task.get("id") == quest_id:
