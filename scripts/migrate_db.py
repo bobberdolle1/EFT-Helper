@@ -10,11 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 async def migrate_database():
-    """Миграция базы данных с добавлением новых полей."""
+    """Миграция базы данных для версии 2.0 - добавление новых полей и удаление устаревших."""
     import os
     db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "eft_helper.db")
     
-    print("🔄 Начало миграции базы данных...")
+    print("🔄 Начало миграции базы данных для версии 2.0...")
     
     async with aiosqlite.connect(db_path) as db:
         migrations_applied = []
@@ -64,6 +64,87 @@ async def migrate_database():
             print("📝 Добавление колонки flea_price в таблицу modules...")
             await db.execute("ALTER TABLE modules ADD COLUMN flea_price INTEGER")
             migrations_applied.append("flea_price в modules")
+        
+        # Миграция 4: Добавление velocity в weapons
+        async with db.execute("PRAGMA table_info(weapons)") as cursor:
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+        
+        if "velocity" not in column_names:
+            print("📝 Добавление колонки velocity в таблицу weapons...")
+            await db.execute("ALTER TABLE weapons ADD COLUMN velocity INTEGER")
+            migrations_applied.append("velocity в weapons")
+        
+        # Миграция 5: Добавление default_width и default_height в weapons
+        async with db.execute("PRAGMA table_info(weapons)") as cursor:
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+        
+        if "default_width" not in column_names:
+            print("📝 Добавление колонки default_width в таблицу weapons...")
+            await db.execute("ALTER TABLE weapons ADD COLUMN default_width INTEGER")
+            migrations_applied.append("default_width в weapons")
+        
+        if "default_height" not in column_names:
+            print("📝 Добавление колонки default_height в таблицу weapons...")
+            await db.execute("ALTER TABLE weapons ADD COLUMN default_height INTEGER")
+            migrations_applied.append("default_height в weapons")
+        
+        # Миграция 6: Удаление planner_link из builds (создание новой таблицы без этого поля)
+        async with db.execute("PRAGMA table_info(builds)") as cursor:
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+        
+        if "planner_link" in column_names:
+            print("📝 Удаление устаревшего поля planner_link из таблицы builds...")
+            
+            # Создаем новую таблицу без planner_link
+            await db.execute("""
+                CREATE TABLE builds_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    weapon_id INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    name_ru TEXT,
+                    name_en TEXT,
+                    quest_name_ru TEXT,
+                    quest_name_en TEXT,
+                    total_cost INTEGER DEFAULT 0,
+                    min_loyalty_level INTEGER DEFAULT 1,
+                    modules TEXT,
+                    FOREIGN KEY (weapon_id) REFERENCES weapons (id)
+                )
+            """)
+            
+            # Копируем данные (без planner_link)
+            await db.execute("""
+                INSERT INTO builds_new 
+                (id, weapon_id, category, name_ru, name_en, quest_name_ru, quest_name_en, 
+                 total_cost, min_loyalty_level, modules)
+                SELECT id, weapon_id, category, name_ru, name_en, quest_name_ru, quest_name_en,
+                       total_cost, min_loyalty_level, modules
+                FROM builds
+            """)
+            
+            # Удаляем старую таблицу и переименовываем новую
+            await db.execute("DROP TABLE builds")
+            await db.execute("ALTER TABLE builds_new RENAME TO builds")
+            
+            migrations_applied.append("удаление planner_link из builds")
+        
+        # Миграция 7: Обновление таблицы traders для локализации
+        async with db.execute("PRAGMA table_info(traders)") as cursor:
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+        
+        if "name_ru" not in column_names:
+            print("📝 Добавление локализации в таблицу traders...")
+            await db.execute("ALTER TABLE traders ADD COLUMN name_ru TEXT")
+            await db.execute("ALTER TABLE traders ADD COLUMN name_en TEXT")
+            
+            # Обновляем существующие записи
+            await db.execute("UPDATE traders SET name_ru = name, name_en = name")
+            
+            migrations_applied.append("локализация traders")
         
         await db.commit()
         

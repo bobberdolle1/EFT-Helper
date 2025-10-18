@@ -97,7 +97,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            items(lang: "{lang}", types: [gun]) {{
+            items(lang: "{lang}", types: [gun], limit: 200) {{
                 id
                 name
                 shortName
@@ -115,6 +115,33 @@ class TarkovAPIClient:
                         recoilVertical
                         recoilHorizontal
                         fireRate
+                        velocity
+                        defaultWidth
+                        defaultHeight
+                        defaultPreset {{
+                            id
+                        }}
+                        slots {{
+                            id
+                            name
+                            nameId
+                            required
+                            filters {{
+                                allowedCategories {{
+                                    id
+                                    name
+                                }}
+                                allowedItems {{
+                                    id
+                                    name
+                                    shortName
+                                    avg24hPrice
+                                }}
+                                excludedItems {{
+                                    id
+                                }}
+                            }}
+                        }}
                     }}
                 }}
             }}

@@ -76,7 +76,6 @@ class Build:
     quest_name_en: Optional[str] = None
     total_cost: int = 0
     min_loyalty_level: int = 1
-    planner_link: Optional[str] = None
     modules: List[int] = None  # List of module IDs
     
     def __post_init__(self):

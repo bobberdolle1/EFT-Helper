@@ -182,7 +182,7 @@ class RandomBuildService:
         language: str = "ru"
     ) -> Tuple[str, int]:
         """
-        Форматирует информацию о сборке для отображения пользователю.
+        Форматирует информацию о сборке для отображения пользователю с полными характеристиками.
         
         Args:
             build_data: Данные сборки из generate_random_build
@@ -204,7 +204,7 @@ class RandomBuildService:
         if properties:
             text += "📊 **Характеристики:**\n" if language == "ru" else "📊 **Stats:**\n"
             
-            if "caliber" in properties:
+            if "caliber" in properties and properties["caliber"]:
                 text += f"  • Калибр: {properties['caliber']}\n" if language == "ru" else f"  • Caliber: {properties['caliber']}\n"
             
             if "ergonomics" in properties and properties["ergonomics"]:
@@ -213,15 +213,23 @@ class RandomBuildService:
             if "recoilVertical" in properties and properties["recoilVertical"]:
                 text += f"  • Отдача (верт): {properties['recoilVertical']}\n" if language == "ru" else f"  • Recoil (vert): {properties['recoilVertical']}\n"
             
+            if "recoilHorizontal" in properties and properties["recoilHorizontal"]:
+                text += f"  • Отдача (гор): {properties['recoilHorizontal']}\n" if language == "ru" else f"  • Recoil (hor): {properties['recoilHorizontal']}\n"
+            
             if "fireRate" in properties and properties["fireRate"]:
                 text += f"  • Скорострельность: {properties['fireRate']} в/м\n" if language == "ru" else f"  • Fire Rate: {properties['fireRate']} RPM\n"
+            
+            if "velocity" in properties and properties["velocity"]:
+                text += f"  • Скорость пули: {properties['velocity']} м/с\n" if language == "ru" else f"  • Velocity: {properties['velocity']} m/s\n"
             
             text += "\n"
         
         # Список модулей
         if mods:
-            text += "🔧 **Установленные модули:**\n" if language == "ru" else "🔧 **Installed Mods:**\n"
+            text += "🔧 **Модули:**\n" if language == "ru" else "🔧 **Mods:**\n"
             total_cost = 0
+            min_loyalty_level = 1
+            required_trader = None
             
             for mod_data in mods:
                 slot_name = mod_data.get("slot_name", "Unknown Slot")
@@ -236,20 +244,27 @@ class RandomBuildService:
                 total_cost += mod_price
                 
                 price_text = f"{mod_price:,} ₽".replace(",", " ") if mod_price else "? ₽"
-                text += f"  • **{slot_name}**: {mod_name} ({price_text})\n"
+                text += f"  - **{slot_name}**: {mod_name}\n"
             
             text += "\n"
             
-            # Общая стоимость модулей
-            weapon_price = weapon.get("avg24hPrice", 0)
+            # Общая стоимость
+            weapon_price = weapon.get("avg24hPrice", 0) or 0
             total_with_weapon = total_cost + weapon_price
             
-            text += f"💰 **Стоимость модулей**: {total_cost:,} ₽\n".replace(",", " ") if language == "ru" else f"💰 **Mods Cost**: {total_cost:,} ₽\n".replace(",", " ")
-            text += f"💰 **Общая стоимость**: {total_with_weapon:,} ₽\n".replace(",", " ") if language == "ru" else f"💰 **Total Cost**: {total_with_weapon:,} ₽\n".replace(",", " ")
+            text += "💰 **Стоимость:**\n" if language == "ru" else "💰 **Cost:**\n"
+            text += f"  • Оружие: {weapon_price:,} ₽\n".replace(",", " ") if language == "ru" else f"  • Weapon: {weapon_price:,} ₽\n".replace(",", " ")
+            text += f"  • Модули: {total_cost:,} ₽\n".replace(",", " ") if language == "ru" else f"  • Mods: {total_cost:,} ₽\n".replace(",", " ")
+            text += f"  • **Итого: {total_with_weapon:,} ₽**\n".replace(",", " ") if language == "ru" else f"  • **Total: {total_with_weapon:,} ₽**\n".replace(",", " ")
+            
+            # Информация о доступности
+            if min_loyalty_level > 1:
+                text += f"\n🛒 **Доступно при лояльности**: {required_trader} Lvl {min_loyalty_level}\n" if language == "ru" else f"\n🛒 **Available at loyalty**: {required_trader} Lvl {min_loyalty_level}\n"
             
             return text, total_with_weapon
         else:
+            weapon_price = weapon.get("avg24hPrice", 0) or 0
             text += "ℹ️ Модули не установлены (базовая конфигурация)\n" if language == "ru" else "ℹ️ No mods installed (base configuration)\n"
-            weapon_price = weapon.get("avg24hPrice", 0)
+            text += f"💰 **Стоимость**: {weapon_price:,} ₽\n".replace(",", " ") if language == "ru" else f"💰 **Cost**: {weapon_price:,} ₽\n".replace(",", " ")
             return text, weapon_price
 

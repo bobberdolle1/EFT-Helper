@@ -65,7 +65,6 @@ class Database:
                     quest_name_en TEXT,
                     total_cost INTEGER DEFAULT 0,
                     min_loyalty_level INTEGER DEFAULT 1,
-                    planner_link TEXT,
                     modules TEXT,
                     FOREIGN KEY (weapon_id) REFERENCES weapons (id)
                 )
@@ -192,40 +191,88 @@ class Database:
                 return None
     
     async def search_weapons(self, query: str, language: str = "ru") -> List[Weapon]:
-        """Search weapons by name."""
+        """Search weapons by name with fuzzy matching."""
+        from rapidfuzz import fuzz, process
+        
         # Безопасная проверка языка для предотвращения SQL injection
         if language not in ("ru", "en"):
             language = "ru"
         
         async with aiosqlite.connect(self.db_path) as db:
-            # Поиск в обоих языках для лучшего UX
+            # First try exact/partial matches
             async with db.execute(
                 """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
-                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range,
+                   velocity, default_width, default_height
                    FROM weapons 
                    WHERE name_ru LIKE ? OR name_en LIKE ? 
-                   LIMIT 10""",
+                   LIMIT 15""",
                 (f"%{query}%", f"%{query}%")
             ) as cursor:
-                rows = await cursor.fetchall()
-                return [
-                    Weapon(
-                        id=row[0],
-                        name_ru=row[1],
-                        name_en=row[2],
-                        category=WeaponCategory(row[3]),
-                        tier_rating=TierRating(row[4]) if row[4] else None,
-                        base_price=row[5],
-                        flea_price=row[6],
-                        caliber=row[7],
-                        ergonomics=row[8],
-                        recoil_vertical=row[9],
-                        recoil_horizontal=row[10],
-                        fire_rate=row[11],
-                        effective_range=row[12]
-                    )
-                    for row in rows
-                ]
+                exact_rows = await cursor.fetchall()
+            
+            # If we have good exact matches, return them
+            if len(exact_rows) >= 5:
+                return [self._row_to_weapon(row) for row in exact_rows[:10]]
+            
+            # Otherwise, get all weapons for fuzzy matching
+            async with db.execute(
+                """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range,
+                   velocity, default_width, default_height
+                   FROM weapons"""
+            ) as cursor:
+                all_rows = await cursor.fetchall()
+            
+            # Prepare data for fuzzy matching
+            weapons_data = []
+            for row in all_rows:
+                weapon = self._row_to_weapon(row)
+                search_name = weapon.name_ru if language == "ru" else weapon.name_en
+                weapons_data.append((weapon, search_name))
+            
+            # Perform fuzzy matching
+            weapon_names = [data[1] for data in weapons_data]
+            matches = process.extract(query, weapon_names, scorer=fuzz.partial_ratio, limit=10)
+            
+            # Filter matches with score > 60 and combine with exact matches
+            fuzzy_results = []
+            seen_ids = set()
+            
+            # Add exact matches first
+            for row in exact_rows:
+                weapon = self._row_to_weapon(row)
+                fuzzy_results.append(weapon)
+                seen_ids.add(weapon.id)
+            
+            # Add fuzzy matches
+            for match_name, score, _ in matches:
+                if score > 60:  # Minimum similarity threshold
+                    for weapon, name in weapons_data:
+                        if name == match_name and weapon.id not in seen_ids:
+                            fuzzy_results.append(weapon)
+                            seen_ids.add(weapon.id)
+                            break
+            
+            return fuzzy_results[:10]
+    
+    def _row_to_weapon(self, row) -> Weapon:
+        """Convert database row to Weapon object."""
+        return Weapon(
+            id=row[0],
+            name_ru=row[1],
+            name_en=row[2],
+            category=WeaponCategory(row[3]),
+            tier_rating=TierRating(row[4]) if row[4] else None,
+            base_price=row[5],
+            flea_price=row[6],
+            caliber=row[7],
+            ergonomics=row[8],
+            recoil_vertical=row[9],
+            recoil_horizontal=row[10],
+            fire_rate=row[11],
+            effective_range=row[12]
+        )
     
     async def get_all_weapons(self) -> List[Weapon]:
         """Get all weapons."""
@@ -329,7 +376,7 @@ class Database:
     
     def _row_to_build(self, row) -> Build:
         """Convert database row to Build object."""
-        modules = json.loads(row[10]) if row[10] else []
+        modules = json.loads(row[9]) if row[9] else []
         return Build(
             id=row[0],
             weapon_id=row[1],
@@ -340,7 +387,6 @@ class Database:
             quest_name_en=row[6],
             total_cost=row[7],
             min_loyalty_level=row[8],
-            planner_link=row[9],
             modules=modules
         )
     

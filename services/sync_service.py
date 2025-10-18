@@ -75,18 +75,30 @@ class SyncService:
             return added_count
     
     async def sync_weapons(self) -> int:
-        """Sync weapons from API to database."""
-        logger.info("Syncing weapons from tarkov.dev API...")
+        """Sync weapons from API to database with full localization."""
+        logger.info("Syncing weapons from tarkov.dev API with localization...")
         
-        weapons_data = await self.api.get_all_weapons()
-        if not weapons_data:
+        # Get weapons in both languages
+        weapons_data_en = await self.api.get_all_weapons(lang="en")
+        weapons_data_ru = await self.api.get_all_weapons(lang="ru")
+        
+        if not weapons_data_en:
             logger.warning("No weapons data received from API")
             return 0
         
+        # Create mapping of weapon IDs to Russian names
+        ru_names = {}
+        for weapon in weapons_data_ru:
+            weapon_id = weapon.get("id")
+            if weapon_id:
+                ru_names[weapon_id] = weapon.get("shortName", weapon.get("name", "Unknown"))
+        
         async with aiosqlite.connect(self.db.db_path) as conn:
             added_count = 0
-            for weapon_data in weapons_data:
-                name = weapon_data.get("shortName", weapon_data.get("name", "Unknown"))
+            for weapon_data in weapons_data_en:
+                weapon_id = weapon_data.get("id")
+                name_en = weapon_data.get("shortName", weapon_data.get("name", "Unknown"))
+                name_ru = ru_names.get(weapon_id, name_en)  # Fallback to English if no Russian
                 
                 # Determine category
                 category = WeaponCategory.ASSAULT_RIFLE  # Default
@@ -96,9 +108,9 @@ class SyncService:
                         category = CATEGORY_MAPPING[weapon_type]
                         break
                 
-                tier_rating = TIER_RATINGS.get(name, None)
+                tier_rating = TIER_RATINGS.get(name_en, None)
                 price = weapon_data.get("avg24hPrice", 0) or 0
-                flea_price = weapon_data.get("avg24hPrice", None)  # Flea market price
+                flea_price = weapon_data.get("avg24hPrice", None)
                 
                 # Extract properties
                 properties = weapon_data.get("properties", {})
@@ -107,6 +119,9 @@ class SyncService:
                 recoil_vertical = properties.get("recoilVertical", None)
                 recoil_horizontal = properties.get("recoilHorizontal", None)
                 fire_rate = properties.get("fireRate", None)
+                velocity = properties.get("velocity", None)
+                default_width = properties.get("defaultWidth", None)
+                default_height = properties.get("defaultHeight", None)
                 
                 # Calculate effective range based on caliber
                 effective_range = self._calculate_effective_range(caliber)
@@ -115,44 +130,57 @@ class SyncService:
                     await conn.execute(
                         """INSERT OR REPLACE INTO weapons 
                         (name_ru, name_en, category, tier_rating, base_price, flea_price,
-                         caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (name, name, category.value, tier_rating, price, flea_price,
-                         caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range)
+                         caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, 
+                         effective_range, velocity, default_width, default_height) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (name_ru, name_en, category.value, tier_rating, price, flea_price,
+                         caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, 
+                         effective_range, velocity, default_width, default_height)
                     )
                     added_count += 1
                 except Exception as e:
-                    logger.error(f"Error adding weapon {name}: {e}")
+                    logger.error(f"Error adding weapon {name_en}: {e}")
             
             await conn.commit()
-            logger.info(f"Synced {added_count} weapons")
+            logger.info(f"Synced {added_count} weapons with localization")
             return added_count
     
     async def sync_modules(self) -> int:
-        """Sync weapon modules/attachments from API to database."""
-        logger.info("Syncing modules from tarkov.dev API...")
+        """Sync weapon modules/attachments from API to database with localization."""
+        logger.info("Syncing modules from tarkov.dev API with localization...")
         
-        mods_data = await self.api.get_all_mods()
-        if not mods_data:
+        # Get modules in both languages
+        mods_data_en = await self.api.get_all_mods(lang="en")
+        mods_data_ru = await self.api.get_all_mods(lang="ru")
+        
+        if not mods_data_en:
             logger.warning("No mods data received from API")
             return 0
+        
+        # Create mapping of module IDs to Russian names
+        ru_names = {}
+        for mod in mods_data_ru:
+            mod_id = mod.get("id")
+            if mod_id:
+                ru_names[mod_id] = mod.get("shortName", mod.get("name", "Unknown"))
         
         async with aiosqlite.connect(self.db.db_path) as conn:
             added_count = 0
             seen_ids = set()
             
-            for mod in mods_data:
+            for mod in mods_data_en:
                 mod_id = mod.get("id")
                 if mod_id in seen_ids:
                     continue
                 seen_ids.add(mod_id)
                 
-                name = mod.get("shortName", mod.get("name", "Unknown"))
+                name_en = mod.get("shortName", mod.get("name", "Unknown"))
+                name_ru = ru_names.get(mod_id, name_en)  # Fallback to English if no Russian
                 price = mod.get("avg24hPrice", 0) or 0
-                flea_price = mod.get("avg24hPrice", None)  # Flea market price
+                flea_price = mod.get("avg24hPrice", None)
                 
                 # Determine slot type
-                slot_type = self._determine_slot_type(name, mod.get("types", []))
+                slot_type = self._determine_slot_type(name_en, mod.get("types", []))
                 
                 # Get trader info from sellFor
                 trader = "Mechanic"
@@ -173,14 +201,14 @@ class SyncService:
                         """INSERT OR REPLACE INTO modules 
                         (name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price) 
                         VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                        (name, name, trader_price, trader, loyalty_level, slot_type, flea_price)
+                        (name_ru, name_en, trader_price, trader, loyalty_level, slot_type, flea_price)
                     )
                     added_count += 1
                 except Exception as e:
-                    logger.debug(f"Error adding module {name}: {e}")
+                    logger.debug(f"Error adding module {name_en}: {e}")
             
             await conn.commit()
-            logger.info(f"Synced {added_count} modules")
+            logger.info(f"Synced {added_count} modules with localization")
             return added_count
     
     async def sync_all(self) -> Dict[str, int]:
@@ -212,34 +240,72 @@ class SyncService:
         return results
     
     async def _load_quest_builds(self) -> int:
-        """Load all quest builds into database."""
-        from database.quest_builds_data import get_all_quests
+        """Load weapon assembly/modification quest builds from API into database."""
         import aiosqlite
         import json
         
-        quests = get_all_quests()
+        # Get weapon build tasks from Mechanic in both languages
+        quest_tasks_en = await self.api.get_weapon_build_tasks(lang="en")
+        quest_tasks_ru = await self.api.get_weapon_build_tasks(lang="ru")
+        
+        if not quest_tasks_en:
+            logger.warning("No weapon build tasks received from API")
+            return 0
+        
+        # Create mapping of quest IDs to Russian names
+        ru_quest_names = {}
+        for quest in quest_tasks_ru:
+            quest_id = quest.get("id")
+            if quest_id:
+                ru_quest_names[quest_id] = quest.get("name", "Unknown Quest")
+        
         added_count = 0
         
         async with aiosqlite.connect(self.db.db_path) as conn:
-            for quest_id, quest_data in quests.items():
-                weapon_name = quest_data.get("weapon", "Unknown")
-                name_ru = quest_data.get("name_ru", quest_id)
-                name_en = quest_data.get("name_en", quest_id)
+            for quest_data in quest_tasks_en:
+                quest_id = quest_data.get("id")
+                name_en = quest_data.get("name", "Unknown Quest")
+                name_ru = ru_quest_names.get(quest_id, name_en)
                 
-                async with conn.execute(
-                    "SELECT id FROM weapons WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
-                    (f"%{weapon_name}%", f"%{weapon_name}%")
-                ) as cursor:
-                    weapon_row = await cursor.fetchone()
+                # Check if this quest has weapon-related objectives
+                objectives = quest_data.get("objectives", [])
+                weapon_related = False
                 
-                if not weapon_row:
+                for obj in objectives:
+                    obj_type = obj.get("type", "").lower()
+                    obj_desc = obj.get("description", "").lower()
+                    
+                    # Check for weapon build/modification keywords
+                    if any(keyword in obj_desc for keyword in [
+                        "build", "modify", "assemble", "attach", "install",
+                        "weapon", "gun", "rifle", "pistol", "shotgun",
+                        "сборка", "модифицировать", "собрать", "установить",
+                        "оружие", "винтовка", "пистолет", "дробовик"
+                    ]):
+                        weapon_related = True
+                        break
+                
+                if not weapon_related:
                     continue
                 
-                weapon_id = weapon_row[0]
-                
+                # Try to find a matching weapon for this quest
+                # This is a simplified approach - in reality, quest objectives would specify exact weapons
+                weapon_id = None
                 async with conn.execute(
-                    "SELECT id FROM builds WHERE weapon_id = ? AND quest_name_en = ?",
-                    (weapon_id, name_en)
+                    "SELECT id FROM weapons WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
+                    ("%M4A1%", "%M4A1%")  # Default to M4A1 for Gunsmith quests
+                ) as cursor:
+                    weapon_row = await cursor.fetchone()
+                    if weapon_row:
+                        weapon_id = weapon_row[0]
+                
+                if not weapon_id:
+                    continue
+                
+                # Check if this quest build already exists
+                async with conn.execute(
+                    "SELECT id FROM builds WHERE quest_name_en = ? AND category = ?",
+                    (name_en, "quest")
                 ) as cursor:
                     existing = await cursor.fetchone()
                 
@@ -248,16 +314,16 @@ class SyncService:
                     await conn.execute(
                         """INSERT INTO builds 
                         (weapon_id, category, name_ru, name_en, quest_name_ru, quest_name_en,
-                         total_cost, min_loyalty_level, modules, planner_link)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         total_cost, min_loyalty_level, modules)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (weapon_id, BuildCategory.QUEST.value, name_ru, name_en, 
-                         name_ru, name_en, 150000, 2, json.dumps([]), None)
+                         name_ru, name_en, 150000, 2, json.dumps([]))
                     )
                     added_count += 1
             
             await conn.commit()
         
-        logger.info(f"Loaded {added_count} quest builds")
+        logger.info(f"Loaded {added_count} weapon build quest tasks from Mechanic")
         return added_count
     
     def _calculate_effective_range(self, caliber: Optional[str]) -> Optional[int]:
