@@ -16,32 +16,39 @@ router = Router()
 
 
 @router.message(F.text.in_([get_text("random_build", "ru"), get_text("random_build", "en")]))
-async def show_random_build(message: Message, user_service, build_service):
-    """Show random build."""
+async def show_random_build(message: Message, user_service, random_build_service):
+    """Show truly random build with dynamic generation (no dependency on builds table)."""
     user = await user_service.get_or_create_user(message.from_user.id)
     
     # Show loading message
     loading_msg = await message.answer(get_text("generating_random", user.language))
     
-    # Get random build using service
-    build_data = await build_service.get_random_build()
+    try:
+        # Generate truly random build with dynamic generation
+        build_data = await random_build_service.generate_random_build_for_random_weapon(lang=user.language)
+        
+        if not build_data:
+            error_text = (
+                "⚠️ Не удалось сгенерировать сборку. Попробуйте позже или обновите данные через /sync."
+                if user.language == "ru"
+                else "⚠️ Failed to generate build. Try again later or update data via /sync."
+            )
+            await loading_msg.edit_text(error_text)
+            return
+        
+        # Format build information
+        build_text, total_cost = random_build_service.format_build_info(build_data, user.language)
+        
+        await loading_msg.edit_text(build_text, parse_mode="Markdown")
     
-    if not build_data:
-        await loading_msg.edit_text(get_text("no_builds_found", user.language))
-        return
-    
-    build = build_data["build"]
-    weapon = build_data["weapon"]
-    modules = build_data["modules"]
-    
-    # Check if weapon exists
-    if not weapon:
-        error_text = get_text("weapon_not_found", user.language)
+    except Exception as e:
+        logger.error(f"Error generating random build: {e}", exc_info=True)
+        error_text = (
+            "⚠️ Не удалось сгенерировать сборку. Попробуйте позже или обновите данные через /sync."
+            if user.language == "ru"
+            else "⚠️ Failed to generate build. Try again later or update data via /sync."
+        )
         await loading_msg.edit_text(error_text)
-        return
-    
-    build_text = await format_build_card(build, weapon, modules, user.language)
-    await loading_msg.edit_text(build_text, parse_mode="Markdown")
 
 
 @router.message(F.text.in_([get_text("truly_random_build", "ru"), get_text("truly_random_build", "en")]))
@@ -233,15 +240,33 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
     build_type = parts[1]
     weapon_id = int(parts[2])
     
-    # Get builds by weapon and category
+    # Handle random builds separately - don't use static builds table
+    if build_type == "random":
+        # Random builds should use dynamic generation from main menu
+        # This callback is for static builds only (meta, quest, loyalty)
+        message_text = (
+            "🎲 Для случайной сборки используйте кнопку **\"Случайная сборка\"** в главном меню.\n\n"
+            "Она генерирует совершенно новую сборку каждый раз, не используя готовые шаблоны."
+            if user.language == "ru"
+            else "🎲 For random builds, use the **\"Random Build\"** button in the main menu.\n\n"
+            "It generates a completely new build each time without using templates."
+        )
+        await callback.message.edit_text(message_text, parse_mode="Markdown")
+        await callback.answer()
+        return
+    
+    # Get builds by weapon and category (only for meta, quest, loyalty)
     category_map = {
-        "random": None,
         "meta": BuildCategory.META,
         "quest": BuildCategory.QUEST,
         "loyalty": BuildCategory.LOYALTY
     }
     
     category = category_map.get(build_type)
+    if not category:
+        await callback.answer(get_text("error", user.language))
+        return
+    
     builds = await db.get_builds_by_weapon(weapon_id, category)
     
     if not builds:
@@ -249,16 +274,8 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
         await callback.answer()
         return
     
-    # If random, pick one
-    if build_type == "random":
-        build = random.choice(builds) if builds else None
-    else:
-        build = builds[0] if builds else None
-    
-    if not build:
-        await callback.message.edit_text(get_text("no_builds_found", user.language))
-        await callback.answer()
-        return
+    # Pick first build for non-random types
+    build = builds[0]
     
     # Format and show build card
     weapon = await db.get_weapon_by_id(build.weapon_id)
