@@ -181,25 +181,274 @@ async def populate_sample_data():
         return False
 
 
-async def sync_from_api():
-    """Синхронизация данных с tarkov.dev API."""
-    print("\n🌐 Синхронизация с tarkov.dev API...")
-    print("   (Это может занять некоторое время)")
+async def load_data_from_api():
+    """Загрузка всех данных из API (при первом запуске)."""
+    import aiohttp
+    
+    print("\n📡 Загрузка данных из tarkov.dev API...")
+    print("   Это займет около минуты...\n")
+    
+    API_URL = "https://api.tarkov.dev/graphql"
+    
+    query = """
+    {
+        items(limit: 10000) {
+            id
+            name
+            shortName
+            avg24hPrice
+            types
+            properties {
+                ... on ItemPropertiesWeapon {
+                    caliber
+                    ergonomics
+                    recoilVertical
+                    recoilHorizontal
+                    fireRate
+                }
+            }
+            buyFor {
+                vendor {
+                    ... on TraderOffer {
+                        trader {
+                            name
+                        }
+                        minTraderLevel
+                    }
+                }
+                price
+            }
+        }
+    }
+    """
     
     try:
-        # Добавляем путь к scripts в sys.path
-        scripts_path = os.path.join(os.path.dirname(__file__), 'scripts')
-        if scripts_path not in sys.path:
-            sys.path.insert(0, scripts_path)
-        
-        import sync_tarkov_data
-        await sync_tarkov_data.main()
-        return True
+        async with aiohttp.ClientSession() as session:
+            async with session.post(API_URL, json={"query": query}, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                if resp.status != 200:
+                    print(f"❌ API вернул код {resp.status}")
+                    return False
+                
+                data = await resp.json()
+                
+                if "errors" in data:
+                    print(f"❌ Ошибки API: {data['errors']}")
+                    return False
+                
+                items = data.get("data", {}).get("items", [])
+                print(f"✅ Получено предметов: {len(items)}")
+                
+                if not items:
+                    return False
+                
+                # Separate items
+                weapons = []
+                mods = []
+                
+                for item in items:
+                    item_types = [t.lower() for t in item.get("types", [])]
+                    
+                    if "gun" in item_types:
+                        weapons.append(item)
+                    elif any(mod_type in item_types for mod_type in [
+                        "mods", "mod", "suppressor", "sight", "scope", "stock", 
+                        "grip", "pistolgrip", "foregrip", "magazine", "handguard", 
+                        "mount", "barrel", "gasblock", "charging", "receiver"
+                    ]):
+                        mods.append(item)
+                
+                print(f"   Оружие: {len(weapons)}, Модули: {len(mods)}")
+                
+                # Save to DB
+                await save_api_data_to_db(weapons, mods)
+                
+                return True
+                
     except Exception as e:
-        print(f"⚠️  Ошибка синхронизации с API: {e}")
+        print(f"❌ Ошибка загрузки: {e}")
+        return False
+
+
+async def save_api_data_to_db(weapons, mods):
+    """Save API data to database."""
+    import aiosqlite
+    
+    db_path = "data/eft_helper.db"
+    
+    async with aiosqlite.connect(db_path) as db:
+        # Save weapons
+        for weapon in weapons:
+            try:
+                name_en = weapon.get("shortName") or weapon.get("name", "Unknown")
+                props = weapon.get("properties") or {}
+                
+                await db.execute(
+                    """INSERT OR REPLACE INTO weapons 
+                    (name_ru, name_en, category, base_price, flea_price, caliber, 
+                     ergonomics, recoil_vertical, recoil_horizontal, fire_rate) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (name_en, name_en, "assault_rifle", weapon.get("avg24hPrice", 0),
+                     weapon.get("avg24hPrice"), props.get("caliber"),
+                     props.get("ergonomics"), props.get("recoilVertical"),
+                     props.get("recoilHorizontal"), props.get("fireRate"))
+                )
+            except:
+                pass
+        
+        # Save mods
+        for mod in mods:
+            try:
+                name_en = mod.get("shortName") or mod.get("name", "Unknown")
+                price = mod.get("avg24hPrice", 0) or 0
+                
+                trader = "Mechanic"
+                trader_price = price
+                loyalty_level = 2
+                
+                buy_for = mod.get("buyFor", [])
+                if buy_for:
+                    for offer in buy_for:
+                        vendor = offer.get("vendor")
+                        if vendor and vendor.get("__typename") != "FleaMarket":
+                            trader_data = vendor.get("trader")
+                            if trader_data:
+                                trader = trader_data.get("name", "Mechanic")
+                                loyalty_level = vendor.get("minTraderLevel", 2)
+                                trader_price = offer.get("price", price)
+                                break
+                
+                # Determine slot type
+                name_lower = name_en.lower()
+                types_lower = [t.lower() for t in mod.get("types", [])]
+                
+                if "sight" in name_lower or "scope" in name_lower or "sight" in types_lower:
+                    slot_type = "sight"
+                elif "stock" in name_lower or "stock" in types_lower:
+                    slot_type = "stock"
+                elif "grip" in name_lower or "grip" in types_lower:
+                    slot_type = "grip"
+                elif "suppressor" in name_lower or "suppressor" in types_lower:
+                    slot_type = "muzzle"
+                elif "magazine" in name_lower or "magazine" in types_lower:
+                    slot_type = "magazine"
+                elif "handguard" in name_lower or "handguard" in types_lower:
+                    slot_type = "handguard"
+                elif "barrel" in name_lower or "barrel" in types_lower:
+                    slot_type = "barrel"
+                else:
+                    slot_type = "universal"
+                
+                await db.execute(
+                    """INSERT OR REPLACE INTO modules 
+                    (name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (name_en, name_en, trader_price, trader, loyalty_level, slot_type, price)
+                )
+            except:
+                pass
+        
+        await db.commit()
+        print(f"   ✅ Сохранено в базу данных")
+
+
+async def update_builds_with_modules():
+    """Update builds with actual module IDs from database."""
+    import aiosqlite
+    import json
+    from database.meta_builds_data import META_BUILDS
+    
+    db_path = "data/eft_helper.db"
+    
+    async def find_module_by_name(conn, part_name: str) -> int:
+        """Try to find module ID by part name."""
+        async with conn.execute(
+            "SELECT id FROM modules WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
+            (f"%{part_name}%", f"%{part_name}%")
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+        
+        words = part_name.split()
+        for word in words:
+            if len(word) > 3:
+                async with conn.execute(
+                    "SELECT id FROM modules WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
+                    (f"%{word}%", f"%{word}%")
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return row[0]
+        return None
+    
+    async with aiosqlite.connect(db_path) as conn:
+        for weapon_name, builds in META_BUILDS.items():
+            async with conn.execute(
+                "SELECT id FROM weapons WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
+                (f"%{weapon_name}%", f"%{weapon_name}%")
+            ) as cursor:
+                weapon_row = await cursor.fetchone()
+            
+            if not weapon_row:
+                continue
+            
+            weapon_id = weapon_row[0]
+            
+            for build_type, build_data in builds.items():
+                name_en = build_data.get("name_en", f"{weapon_name} {build_type}")
+                parts = build_data.get("parts", [])
+                
+                async with conn.execute(
+                    "SELECT id, modules FROM builds WHERE weapon_id = ? AND name_en = ?",
+                    (weapon_id, name_en)
+                ) as cursor:
+                    build_row = await cursor.fetchone()
+                
+                if not build_row:
+                    continue
+                
+                build_id = build_row[0]
+                current_modules = json.loads(build_row[1]) if build_row[1] else []
+                
+                if current_modules:
+                    continue
+                
+                module_ids = []
+                for part_name in parts:
+                    module_id = await find_module_by_name(conn, part_name)
+                    if module_id:
+                        module_ids.append(module_id)
+                
+                if module_ids:
+                    total_cost = 0
+                    max_loyalty = 1
+                    
+                    for module_id in module_ids:
+                        async with conn.execute(
+                            "SELECT price, loyalty_level FROM modules WHERE id = ?",
+                            (module_id,)
+                        ) as cursor:
+                            mod_row = await cursor.fetchone()
+                            if mod_row:
+                                total_cost += mod_row[0]
+                                max_loyalty = max(max_loyalty, mod_row[1])
+                    
+                    await conn.execute(
+                        "UPDATE builds SET modules = ?, total_cost = ?, min_loyalty_level = ? WHERE id = ?",
+                        (json.dumps(module_ids), total_cost, max_loyalty, build_id)
+                    )
+        
+        await conn.commit()
+
+
+async def sync_from_api():
+    """Синхронизация данных с tarkov.dev API."""
+    try:
+        print("\n🌐 Синхронизация с tarkov.dev API...")
+        return await load_data_from_api()
+    except Exception as e:
+        print(f"⚠️  Ошибка синхронизации: {e}")
         print("   Продолжаем с локальными данными...")
-        import traceback
-        traceback.print_exc()
         return False
 
 
@@ -238,15 +487,25 @@ async def start_bot():
     dp.include_router(tier_list.router)
     dp.include_router(settings_handler.router)
     
-    # Middleware to inject db into handlers
+    # Middleware to inject db and services into handlers
     @dp.update.outer_middleware()
     async def db_middleware(handler, event, data):
+        from services.user_service import UserService
+        from services.build_service import BuildService
+        from services.random_build_service import RandomBuildService
+        from api_clients import TarkovAPIClient
+        
+        api_client = TarkovAPIClient()
         data["db"] = db
+        data["user_service"] = UserService(db)
+        data["build_service"] = BuildService(db, api_client)
+        data["random_build_service"] = RandomBuildService(db)
         return await handler(event, data)
     
     # Global error handler
     @dp.error()
-    async def error_handler(event, exception):
+    async def error_handler(event, **kwargs):
+        exception = kwargs.get('exception')
         logger.error(f"Error occurred: {exception}", exc_info=True)
         return True
     
@@ -277,27 +536,29 @@ async def main():
     # 3. Проверка содержимого базы
     db_content = await check_database_content(db)
     
-    # 4. Если база пустая, автоматически заполнить данными
-    if db_content["weapons"] == 0 or db_content["traders"] == 0:
-        print("\n⚠️  База данных пуста!")
-        print("\n📦 Автоматическое заполнение базы данных...")
-        print("   (Используются тестовые данные для быстрого старта)\n")
+    # 4. Автоматическая загрузка данных если база пустая
+    if db_content["modules"] < 100:
+        print("\n⚠️  База данных пуста или содержит мало данных!")
+        print("\n📦 Автоматическая загрузка данных из API...")
         
-        # Автоматически заполняем тестовыми данными
-        success = await populate_sample_data()
+        # Сначала загружаем тестовые данные для базовой структуры
+        await populate_sample_data()
+        
+        # Затем загружаем полные данные из API
+        success = await load_data_from_api()
         
         if not success:
-            print("❌ Не удалось заполнить базу данных.")
-            print("   Попробуйте запустить вручную: python populate_db.py")
-            return
-        
-        # Автоматически синхронизируем с API для получения актуальных цен
-        print("\n🔄 Автоматическое обновление цен с API...")
-        await sync_from_api()
-    else:
-        # База заполнена, просто обновляем цены
-        print("\n🔄 Обновление цен с API...")
-        await sync_from_api()
+            print("❌ Не удалось загрузить данные из API")
+            print("   Используем базовые тестовые данные")
+        else:
+            print("✅ Данные загружены успешно!")
+            
+            # Обновляем сборки с новыми модулями
+            print("\n🔧 Обновление сборок с модулями...")
+            await update_builds_with_modules()
+    
+    # Финальная проверка
+    db_content = await check_database_content(db)
     
     # 5. Финальная проверка
     print("\n✅ Все проверки пройдены!")
