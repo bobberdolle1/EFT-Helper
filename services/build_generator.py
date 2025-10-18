@@ -339,41 +339,52 @@ class BuildGenerator:
             weapons = [w for w in weapons if config.weapon_type.lower() in 
                       (w.get("category", {}).get("name", "").lower())]
         
-        # Smart budget allocation:
-        # - For low budgets (<300k): weapon can be 20-50% of budget
-        # - For medium budgets (300k-1M): weapon should be 30-50% of budget
-        # - For high budgets (>1M): weapon should be 35-50% of budget
+        # Universal smart budget allocation for ANY budget:
+        # - Weapon takes 30-50% of budget (leaves 50-70% for mods)
+        # - Higher budgets slightly increase minimum percentage
+        # - This works for budgets from 100k to 100M+
         
-        if config.budget < 300000:
-            min_weapon_price = int(config.budget * 0.20)
-            max_weapon_price = int(config.budget * 0.50)
+        # Calculate min percentage based on budget (scales with budget size)
+        # 100k budget: 25% min
+        # 500k budget: 30% min  
+        # 1M budget: 33% min
+        # 5M+ budget: 35% min
+        if config.budget < 200000:
+            min_percentage = 0.25
+        elif config.budget < 500000:
+            min_percentage = 0.28
         elif config.budget < 1000000:
-            min_weapon_price = int(config.budget * 0.30)
-            max_weapon_price = int(config.budget * 0.50)
+            min_percentage = 0.32
         else:
-            min_weapon_price = int(config.budget * 0.35)
-            max_weapon_price = int(config.budget * 0.50)
+            min_percentage = 0.35
+        
+        max_percentage = 0.50  # Always 50% max to leave room for mods
+        
+        min_weapon_price = int(config.budget * min_percentage)
+        max_weapon_price = int(config.budget * max_percentage)
         
         # Filter weapons in appropriate price range
+        # Only include weapons with valid prices (not None)
         suitable_weapons = [
             w for w in weapons 
-            if min_weapon_price <= (w.get("avg24hPrice") or 0) <= max_weapon_price
+            if w.get("avg24hPrice") and min_weapon_price <= w.get("avg24hPrice") <= max_weapon_price
         ]
         
-        # If no weapons in range, fall back to any affordable weapon
+        # If no weapons in range, fall back to any affordable weapon with valid price
         if not suitable_weapons:
             logger.info(f"No weapons in price range {min_weapon_price}-{max_weapon_price}, using any affordable weapon")
             suitable_weapons = [
                 w for w in weapons 
-                if (w.get("avg24hPrice") or 0) <= max_weapon_price
+                if w.get("avg24hPrice") and w.get("avg24hPrice") <= max_weapon_price
             ]
         
         if not suitable_weapons:
+            logger.warning("No weapons with valid prices found")
             return None
         
         # Prefer more expensive weapons within range (better base stats)
         # Sort by price descending and pick from top 30%
-        suitable_weapons.sort(key=lambda w: w.get("avg24hPrice", 0), reverse=True)
+        suitable_weapons.sort(key=lambda w: w.get("avg24hPrice"), reverse=True)
         top_tier_count = max(1, len(suitable_weapons) // 3)
         top_tier_weapons = suitable_weapons[:top_tier_count]
         
