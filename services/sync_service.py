@@ -129,11 +129,11 @@ class SyncService:
                 try:
                     await conn.execute(
                         """INSERT OR REPLACE INTO weapons 
-                        (name_ru, name_en, category, tier_rating, base_price, flea_price,
+                        (name_ru, name_en, category, tier_rating, base_price, flea_price, tarkov_id,
                          caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, 
                          effective_range, velocity, default_width, default_height) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (name_ru, name_en, category.value, tier_rating, price, flea_price,
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (name_ru, name_en, category.value, tier_rating, price, flea_price, weapon_id,
                          caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, 
                          effective_range, velocity, default_width, default_height)
                     )
@@ -182,26 +182,67 @@ class SyncService:
                 # Determine slot type
                 slot_type = self._determine_slot_type(name_en, mod.get("types", []))
                 
+                # Extract slot_name from properties (for export compatibility)
+                # slot_name format: "mod_pistol_grip", "mod_stock", "mod_sight_rear", etc.
+                slot_name = None
+                properties = mod.get("properties", {})
+                if properties:
+                    # Try to get slot info from properties
+                    slots = properties.get("slots", [])
+                    if slots and len(slots) > 0:
+                        # Use first slot's nameId if available
+                        slot_name = slots[0].get("nameId")
+                
+                # If no slot_name from properties, try to infer from types
+                if not slot_name:
+                    mod_types = mod.get("types", [])
+                    if "muzzle" in mod_types:
+                        slot_name = "mod_muzzle"
+                    elif "sight" in mod_types:
+                        slot_name = "mod_sight_rear"
+                    elif "pistol-grip" in mod_types:
+                        slot_name = "mod_pistol_grip"
+                    elif "stock" in mod_types:
+                        slot_name = "mod_stock"
+                    elif "handguard" in mod_types:
+                        slot_name = "mod_handguard"
+                    elif "barrel" in mod_types:
+                        slot_name = "mod_barrel"
+                    elif "magazine" in mod_types:
+                        slot_name = "mod_magazine"
+                    elif "tactical" in mod_types:
+                        slot_name = "mod_tactical"
+                
                 # Get trader info from sellFor
                 trader = "Mechanic"
                 trader_price = price  # Default to avg price
                 loyalty_level = 2
                 sell_for = mod.get("sellFor", [])
                 if sell_for:
+                    # Find the first trader offer (not Fence)
                     for sale in sell_for:
                         vendor = sale.get("vendor", {})
-                        if vendor:
+                        if vendor and vendor.get("name") and vendor.get("name") != "Fence":
                             trader = vendor.get("name", "Mechanic")
-                            loyalty_level = vendor.get("minTraderLevel", 2)
-                            trader_price = sale.get("price", price)
+                            trader_price = sale.get("priceRUB", sale.get("price", price))
+                            # Infer loyalty level based on price (rough estimation)
+                            # Lower priced items are typically LL1, higher priced are LL2-4
+                            if trader_price < 10000:
+                                loyalty_level = 1
+                            elif trader_price < 50000:
+                                loyalty_level = 2
+                            elif trader_price < 150000:
+                                loyalty_level = 3
+                            else:
+                                loyalty_level = 4
                             break
                 
                 try:
                     await conn.execute(
                         """INSERT OR REPLACE INTO modules 
-                        (name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                        (name_ru, name_en, trader_price, trader, loyalty_level, slot_type, flea_price)
+                        (name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price, tarkov_id, slot_name) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (name_ru, name_en, trader_price, trader, loyalty_level, slot_type, flea_price, mod_id, slot_name)
                     )
                     added_count += 1
                 except Exception as e:

@@ -370,13 +370,22 @@ class BuildGenerator:
             if w.get("avg24hPrice") and min_weapon_price <= w.get("avg24hPrice") <= max_weapon_price
         ]
         
-        # If no weapons in range, fall back to any affordable weapon with valid price
+        # If no weapons in range, fall back to most expensive affordable weapon
         if not suitable_weapons:
-            logger.info(f"No weapons in price range {min_weapon_price}-{max_weapon_price}, using any affordable weapon")
-            suitable_weapons = [
+            logger.info(f"No weapons in price range {min_weapon_price}-{max_weapon_price}, using most expensive affordable weapon")
+            affordable_weapons = [
                 w for w in weapons 
                 if w.get("avg24hPrice") and w.get("avg24hPrice") <= max_weapon_price
             ]
+            
+            if not affordable_weapons:
+                logger.warning("No affordable weapons found")
+                return None
+            
+            # Sort by price descending and pick the most expensive (best value for budget)
+            affordable_weapons.sort(key=lambda w: w.get("avg24hPrice"), reverse=True)
+            # Take top 5 most expensive and randomly pick one
+            return random.choice(affordable_weapons[:5])
         
         if not suitable_weapons:
             logger.warning("No weapons with valid prices found")

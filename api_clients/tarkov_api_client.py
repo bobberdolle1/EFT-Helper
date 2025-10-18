@@ -108,7 +108,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            items(lang: {lang}, types: [gun], limit: 200) {{
+            items(lang: {lang}, types: [gun], limit: 1000) {{
                 id
                 name
                 shortName
@@ -212,7 +212,7 @@ class TarkovAPIClient:
         
         query = f"""
         {{
-            items(lang: {lang}, limit: 5000, types: [mods, suppressor, sight, scope, stock, grip, magazine]) {{
+            items(lang: {lang}, limit: 10000, types: [mods]) {{
                 id
                 name
                 shortName
@@ -222,10 +222,10 @@ class TarkovAPIClient:
                     vendor {{
                         name
                         normalizedName
-                        minTraderLevel
                     }}
                     price
                     currency
+                    priceRUB
                 }}
             }}
         }}

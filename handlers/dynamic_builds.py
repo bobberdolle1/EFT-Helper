@@ -236,40 +236,32 @@ async def save_build_with_name(message: Message, db: Database, user_service, sta
     build_data = temp_build_data[user.user_id]
     generated_build = build_data["build"]
     
-    # Extract module IDs from generated build
-    module_ids = [int(mod.get("id", "0").replace("id_", "")) for mod in generated_build.modules.values() if mod.get("id")]
-    # Filter out invalid IDs
-    module_ids = [mid for mid in module_ids if mid > 0]
+    # Note: Dynamic builds use tarkov.dev IDs which are strings, not DB integer IDs
+    # For now, we cannot save dynamic builds as they don't map to our DB structure
+    # This would require a complete redesign of the build storage system
     
-    # Create UserBuild object
-    user_build = UserBuild(
-        id=0,  # Will be auto-generated
-        user_id=user.user_id,
-        weapon_id=0,  # We need to map weapon_id from tarkov.dev ID to our DB ID
-        name=build_name,
-        modules=module_ids,
-        total_cost=generated_build.total_cost,
-        tier_rating=generated_build.tier_rating,
-        ergonomics=generated_build.ergonomics,
-        recoil_vertical=generated_build.recoil_vertical,
-        recoil_horizontal=generated_build.recoil_horizontal,
-        is_public=False
+    error_text = (
+        "⚠️ Сохранение динамических сборок временно недоступно.\n\n"
+        "Вы можете:\n"
+        "• Сделать скриншот сборки\n"
+        "• Записать характеристики\n"
+        "• Использовать экспорт (в будущих версиях)"
+        if user.language == "ru"
+        else "⚠️ Saving dynamic builds is temporarily unavailable.\n\n"
+        "You can:\n"
+        "• Take a screenshot\n"
+        "• Write down the stats\n"
+        "• Use export (in future versions)"
     )
     
-    try:
-        # Save to database
-        build_id = await db.create_user_build(user_build)
-        
-        # Clean up temp data
-        del temp_build_data[user.user_id]
-        
-        await message.answer(get_text("build_saved", user.language))
-        await state.clear()
-        
-    except Exception as e:
-        logger.error(f"Error saving build: {e}", exc_info=True)
-        await message.answer(get_text("error", user.language))
-        await state.clear()
+    await message.answer(error_text)
+    await state.clear()
+    
+    # TODO: Implement proper dynamic build saving with tarkov_id mapping
+    # This requires:
+    # 1. New table for dynamic builds with tarkov_id references
+    # 2. Mapping service between tarkov_id and DB IDs
+    # 3. Export/import functionality for sharing
 
 
 @router.callback_query(F.data == "cancel_build")

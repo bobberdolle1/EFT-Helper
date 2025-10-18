@@ -308,29 +308,20 @@ async def start_constructor(callback: CallbackQuery, db: Database, user_service,
         else f"⚙️ Loading data for {weapon_name}..."
     )
     
-    # Search for weapon in API
+    # Use tarkov_id from database if available
     try:
-        weapons = await api_client.get_all_weapons(lang=user.language)
-        weapon_name_search = weapon.name_en.lower()
-        
-        api_weapon = None
-        for w in weapons:
-            if weapon_name_search in w.get("name", "").lower() or weapon_name_search in w.get("shortName", "").lower():
-                api_weapon = w
-                break
-        
-        if not api_weapon:
+        if not weapon.tarkov_id:
             error_text = (
-                f"❌ Не удалось найти {weapon_name} в API."
+                f"❌ {weapon_name} не поддерживается конструктором. Попробуйте другое оружие."
                 if user.language == "ru"
-                else f"❌ Could not find {weapon_name} in API."
+                else f"❌ {weapon_name} is not supported by constructor. Try another weapon."
             )
             await callback.message.edit_text(error_text)
             await callback.answer()
             return
         
-        # Get weapon details with slots
-        weapon_details = await api_client.get_weapon_details(api_weapon.get("id"))
+        # Get weapon details with slots using tarkov_id
+        weapon_details = await api_client.get_weapon_details(weapon.tarkov_id)
         
         if not weapon_details or "properties" not in weapon_details:
             await callback.message.edit_text(get_text("error", user.language))

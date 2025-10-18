@@ -188,7 +188,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 """SELECT id, name_ru, name_en, category, tier_rating, base_price, flea_price,
-                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range 
+                   caliber, ergonomics, recoil_vertical, recoil_horizontal, fire_rate, effective_range, tarkov_id 
                    FROM weapons WHERE id = ?""",
                 (weapon_id,)
             ) as cursor:
@@ -202,6 +202,7 @@ class Database:
                         tier_rating=TierRating(row[4]) if row[4] else None,
                         base_price=row[5],
                         flea_price=row[6],
+                        tarkov_id=row[13],
                         caliber=row[7],
                         ergonomics=row[8],
                         recoil_vertical=row[9],
@@ -441,7 +442,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             placeholders = ",".join("?" * len(module_ids))
             async with db.execute(
-                f"SELECT id, name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price FROM modules WHERE id IN ({placeholders})",
+                f"SELECT id, name_ru, name_en, price, trader, loyalty_level, slot_type, flea_price, tarkov_id, slot_name FROM modules WHERE id IN ({placeholders})",
                 module_ids
             ) as cursor:
                 rows = await cursor.fetchall()
@@ -451,6 +452,8 @@ class Database:
                         name_ru=row[1],
                         name_en=row[2],
                         price=row[3],
+                        tarkov_id=row[8],
+                        slot_name=row[9],
                         trader=row[4],
                         loyalty_level=row[5],
                         slot_type=row[6],

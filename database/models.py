@@ -42,6 +42,7 @@ class Weapon:
     tier_rating: Optional[TierRating] = None
     base_price: int = 0
     flea_price: Optional[int] = None  # Flea market price
+    tarkov_id: Optional[str] = None  # Tarkov.dev API ID for export
     # Weapon characteristics
     caliber: Optional[str] = None
     ergonomics: Optional[int] = None
@@ -61,6 +62,8 @@ class Module:
     trader: str
     loyalty_level: int
     slot_type: str  # e.g., "stock", "grip", "sight", "barrel", etc.
+    tarkov_id: Optional[str] = None  # Tarkov.dev API ID for export
+    slot_name: Optional[str] = None  # Slot name for export (e.g., "mod_pistol_grip")
     flea_price: Optional[int] = None  # Flea market price
 
 

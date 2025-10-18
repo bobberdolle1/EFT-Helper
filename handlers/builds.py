@@ -2,7 +2,7 @@
 import logging
 import random
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database import Database, BuildCategory
 from localization import get_text
 from keyboards import get_builds_list_keyboard
@@ -292,7 +292,18 @@ async def show_build_by_type(callback: CallbackQuery, db: Database):
         return
     
     build_text = await format_build_card(build, weapon, modules, user.language)
-    await callback.message.edit_text(build_text, parse_mode="Markdown")
+    
+    keyboard_buttons = [
+        [
+            InlineKeyboardButton(
+                text=get_text("regenerate_btn", user.language),
+                callback_data=f"regenerate:{build.id}"
+            )
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    
+    await callback.message.edit_text(build_text, reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
 

@@ -7,6 +7,7 @@ from .random_build_service import RandomBuildService
 from .compatibility_checker import CompatibilityChecker
 from .tier_evaluator import TierEvaluator
 from .build_generator import BuildGenerator, BuildGeneratorConfig, GeneratedBuild
+from .export_service import ExportService
 
 __all__ = [
     "WeaponService",
@@ -18,5 +19,6 @@ __all__ = [
     "TierEvaluator",
     "BuildGenerator",
     "BuildGeneratorConfig",
-    "GeneratedBuild"
+    "GeneratedBuild",
+    "ExportService"
 ]
