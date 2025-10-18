@@ -199,8 +199,62 @@ class SyncService:
         results["weapons"] = await self.sync_weapons()
         results["modules"] = await self.sync_modules()
         
+        # Load quest builds automatically after sync
+        logger.info("Loading quest builds...")
+        quest_count = await self._load_quest_builds()
+        results["quest_builds"] = quest_count
+        
         logger.info(f"Full sync completed: {results}")
         return results
+    
+    async def _load_quest_builds(self) -> int:
+        """Load all quest builds into database."""
+        from database.quest_builds_data import get_all_quests
+        import aiosqlite
+        import json
+        
+        quests = get_all_quests()
+        added_count = 0
+        
+        async with aiosqlite.connect(self.db.db_path) as conn:
+            for quest_id, quest_data in quests.items():
+                weapon_name = quest_data.get("weapon", "Unknown")
+                name_ru = quest_data.get("name_ru", quest_id)
+                name_en = quest_data.get("name_en", quest_id)
+                
+                async with conn.execute(
+                    "SELECT id FROM weapons WHERE name_en LIKE ? OR name_ru LIKE ? LIMIT 1",
+                    (f"%{weapon_name}%", f"%{weapon_name}%")
+                ) as cursor:
+                    weapon_row = await cursor.fetchone()
+                
+                if not weapon_row:
+                    continue
+                
+                weapon_id = weapon_row[0]
+                
+                async with conn.execute(
+                    "SELECT id FROM builds WHERE weapon_id = ? AND quest_name_en = ?",
+                    (weapon_id, name_en)
+                ) as cursor:
+                    existing = await cursor.fetchone()
+                
+                if not existing:
+                    from database import BuildCategory
+                    await conn.execute(
+                        """INSERT INTO builds 
+                        (weapon_id, category, name_ru, name_en, quest_name_ru, quest_name_en,
+                         total_cost, min_loyalty_level, modules, planner_link)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (weapon_id, BuildCategory.QUEST.value, name_ru, name_en, 
+                         name_ru, name_en, 150000, 2, json.dumps([]), None)
+                    )
+                    added_count += 1
+            
+            await conn.commit()
+        
+        logger.info(f"Loaded {added_count} quest builds")
+        return added_count
     
     def _calculate_effective_range(self, caliber: Optional[str]) -> Optional[int]:
         """Calculate effective range based on caliber."""

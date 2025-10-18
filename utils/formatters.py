@@ -29,22 +29,43 @@ async def format_build_card(build: Build, weapon: Weapon, modules: List[Module],
     
     text += "\n"
     
-    # Weapon characteristics
-    if weapon.caliber or weapon.ergonomics or weapon.recoil_vertical:
-        text += "📊 **" + ("Характеристики оружия" if language == "ru" else "Weapon Stats") + ":**\n"
-        if weapon.caliber:
-            text += f"  🔸 " + ("Калибр" if language == "ru" else "Caliber") + f": {weapon.caliber}\n"
-        if weapon.ergonomics is not None:
-            text += f"  🔸 " + ("Эргономика" if language == "ru" else "Ergonomics") + f": {weapon.ergonomics}\n"
-        if weapon.recoil_vertical is not None:
-            text += f"  🔸 " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": {weapon.recoil_vertical}\n"
-        if weapon.recoil_horizontal is not None:
-            text += f"  🔸 " + ("Горизонтальная отдача" if language == "ru" else "Horizontal Recoil") + f": {weapon.recoil_horizontal}\n"
-        if weapon.fire_rate is not None:
-            text += f"  🔸 " + ("Скорострельность" if language == "ru" else "Fire Rate") + f": {weapon.fire_rate} RPM\n"
-        if weapon.effective_range is not None:
-            text += f"  🔸 " + ("Эффективная дальность" if language == "ru" else "Effective Range") + f": {weapon.effective_range}m\n"
-        text += "\n"
+    # Weapon characteristics - ENHANCED
+    text += "\n" + "="*40 + "\n"
+    text += "📊 **" + ("ХАРАКТЕРИСТИКИ СБОРКИ" if language == "ru" else "BUILD CHARACTERISTICS") + ":**\n"
+    text += "="*40 + "\n\n"
+    
+    # Base weapon info
+    text += "🔫 **" + ("Базовое оружие" if language == "ru" else "Base Weapon") + ":**\n"
+    if weapon.caliber:
+        text += f"  • " + ("Калибр" if language == "ru" else "Caliber") + f": **{weapon.caliber}**\n"
+    if weapon.tier_rating:
+        tier_emoji = {"S": "🏆", "A": "🥇", "B": "🥈", "C": "🥉", "D": "📊"}.get(weapon.tier_rating.value, "⭐")
+        text += f"  • " + ("Tier рейтинг" if language == "ru" else "Tier Rating") + f": {tier_emoji} **{weapon.tier_rating.value}**\n"
+    if weapon.base_price:
+        text += f"  • " + ("Базовая цена" if language == "ru" else "Base Price") + f": {weapon.base_price:,} ₽\n"
+    text += "\n"
+    
+    # Combat stats
+    text += "⚔️ **" + ("Боевые характеристики" if language == "ru" else "Combat Stats") + ":**\n"
+    if weapon.ergonomics is not None:
+        ergo_bar = "█" * min(int(weapon.ergonomics / 10), 10)
+        text += f"  • " + ("Эргономика" if language == "ru" else "Ergonomics") + f": **{weapon.ergonomics}** {ergo_bar}\n"
+    
+    if weapon.recoil_vertical is not None and weapon.recoil_horizontal is not None:
+        recoil_sum = weapon.recoil_vertical + weapon.recoil_horizontal
+        text += f"  • " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": **{weapon.recoil_vertical}**\n"
+        text += f"  • " + ("Горизонтальная отдача" if language == "ru" else "Horizontal Recoil") + f": **{weapon.recoil_horizontal}**\n"
+        text += f"  • " + ("Сумма отдачи" if language == "ru" else "Total Recoil") + f": **{recoil_sum}**\n"
+    elif weapon.recoil_vertical is not None:
+        text += f"  • " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": **{weapon.recoil_vertical}**\n"
+    
+    if weapon.fire_rate is not None:
+        text += f"  • " + ("Скорострельность" if language == "ru" else "Fire Rate") + f": **{weapon.fire_rate}** RPM\n"
+    
+    if weapon.effective_range is not None:
+        text += f"  • " + ("Эффективная дальность" if language == "ru" else "Effective Range") + f": **{weapon.effective_range}m**\n"
+    
+    text += "\n"
     
     # Modules list grouped by trader
     if modules:
