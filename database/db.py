@@ -4,7 +4,7 @@ import json
 import logging
 from typing import List, Optional
 from .models import (
-    Weapon, Module, Build, Quest, Trader, User,
+    Weapon, Module, Build, Quest, Trader, User, UserBuild,
     BuildCategory, WeaponCategory, TierRating
 )
 
@@ -98,6 +98,27 @@ class Database:
                     language TEXT DEFAULT 'ru',
                     favorite_builds TEXT,
                     trader_levels TEXT
+                )
+            """)
+            
+            # User builds table (for v3.0 dynamic build system)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_builds (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    weapon_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    modules TEXT NOT NULL,
+                    total_cost INTEGER NOT NULL,
+                    tier_rating TEXT NOT NULL,
+                    ergonomics INTEGER,
+                    recoil_vertical INTEGER,
+                    recoil_horizontal INTEGER,
+                    is_public BOOLEAN DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    likes INTEGER DEFAULT 0,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id),
+                    FOREIGN KEY (weapon_id) REFERENCES weapons (id)
                 )
             """)
             
@@ -463,3 +484,106 @@ class Database:
                     )
                     for row in rows
                 ]
+    
+    # User builds operations (v3.0)
+    async def create_user_build(self, user_build: UserBuild) -> int:
+        """Create a new user build and return its ID."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """INSERT INTO user_builds 
+                   (user_id, weapon_id, name, modules, total_cost, tier_rating, 
+                    ergonomics, recoil_vertical, recoil_horizontal, is_public)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (user_build.user_id, user_build.weapon_id, user_build.name,
+                 json.dumps(user_build.modules), user_build.total_cost,
+                 user_build.tier_rating.value, user_build.ergonomics,
+                 user_build.recoil_vertical, user_build.recoil_horizontal,
+                 user_build.is_public)
+            )
+            await db.commit()
+            return cursor.lastrowid
+    
+    async def get_user_build_by_id(self, build_id: int) -> Optional[UserBuild]:
+        """Get user build by ID."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                """SELECT id, user_id, weapon_id, name, modules, total_cost, tier_rating,
+                   ergonomics, recoil_vertical, recoil_horizontal, is_public, 
+                   created_at, likes FROM user_builds WHERE id = ?""",
+                (build_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return self._row_to_user_build(row)
+                return None
+    
+    async def get_user_builds(self, user_id: int, limit: int = 50) -> List[UserBuild]:
+        """Get all builds created by a specific user."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                """SELECT id, user_id, weapon_id, name, modules, total_cost, tier_rating,
+                   ergonomics, recoil_vertical, recoil_horizontal, is_public, 
+                   created_at, likes FROM user_builds 
+                   WHERE user_id = ? ORDER BY created_at DESC LIMIT ?""",
+                (user_id, limit)
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_user_build(row) for row in rows]
+    
+    async def get_public_builds(self, limit: int = 50, offset: int = 0) -> List[UserBuild]:
+        """Get public builds from the community."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                """SELECT id, user_id, weapon_id, name, modules, total_cost, tier_rating,
+                   ergonomics, recoil_vertical, recoil_horizontal, is_public, 
+                   created_at, likes FROM user_builds 
+                   WHERE is_public = 1 ORDER BY likes DESC, created_at DESC LIMIT ? OFFSET ?""",
+                (limit, offset)
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_user_build(row) for row in rows]
+    
+    async def update_user_build_visibility(self, build_id: int, is_public: bool):
+        """Update build visibility."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE user_builds SET is_public = ? WHERE id = ?",
+                (is_public, build_id)
+            )
+            await db.commit()
+    
+    async def delete_user_build(self, build_id: int, user_id: int):
+        """Delete a user build (only by owner)."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM user_builds WHERE id = ? AND user_id = ?",
+                (build_id, user_id)
+            )
+            await db.commit()
+    
+    async def increment_build_likes(self, build_id: int):
+        """Increment likes for a build."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE user_builds SET likes = likes + 1 WHERE id = ?",
+                (build_id,)
+            )
+            await db.commit()
+    
+    def _row_to_user_build(self, row) -> UserBuild:
+        """Convert database row to UserBuild object."""
+        return UserBuild(
+            id=row[0],
+            user_id=row[1],
+            weapon_id=row[2],
+            name=row[3],
+            modules=json.loads(row[4]) if row[4] else [],
+            total_cost=row[5],
+            tier_rating=TierRating(row[6]),
+            ergonomics=row[7],
+            recoil_vertical=row[8],
+            recoil_horizontal=row[9],
+            is_public=bool(row[10]),
+            created_at=row[11],
+            likes=row[12]
+        )

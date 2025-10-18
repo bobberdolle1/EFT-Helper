@@ -77,6 +77,30 @@ class Build:
     total_cost: int = 0
     min_loyalty_level: int = 1
     modules: List[int] = None  # List of module IDs
+    is_quest: bool = False  # Flag for quest builds
+    tier_rating: Optional[TierRating] = None  # Build quality tier
+    
+    def __post_init__(self):
+        if self.modules is None:
+            self.modules = []
+
+
+@dataclass
+class UserBuild:
+    """User-created weapon build data model."""
+    id: int
+    user_id: int
+    weapon_id: int
+    name: str
+    modules: List[int]  # List of module IDs (stored as JSON)
+    total_cost: int
+    tier_rating: TierRating
+    ergonomics: Optional[int] = None
+    recoil_vertical: Optional[int] = None
+    recoil_horizontal: Optional[int] = None
+    is_public: bool = False
+    created_at: Optional[str] = None
+    likes: int = 0
     
     def __post_init__(self):
         if self.modules is None:

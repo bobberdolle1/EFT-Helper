@@ -15,7 +15,9 @@ from database import Database
 from api_clients import TarkovAPIClient
 from services import WeaponService, BuildService, UserService, SyncService
 from services.random_build_service import RandomBuildService
+from services import CompatibilityChecker, TierEvaluator, BuildGenerator
 from handlers import common, search, builds, loyalty, tier_list, settings
+from handlers import community_builds, dynamic_builds
 
 # Load environment variables
 load_dotenv()
@@ -54,6 +56,11 @@ class BotApplication:
         self.sync_service = SyncService(self.db, self.api_client)
         self.random_build_service = RandomBuildService(self.api_client)
         
+        # v3.0 Services
+        self.compatibility_checker = CompatibilityChecker(self.api_client)
+        self.tier_evaluator = TierEvaluator()
+        self.build_generator = BuildGenerator(self.api_client, self.compatibility_checker, self.tier_evaluator)
+        
         # Bot and Dispatcher
         self.bot = Bot(token=self.bot_token)
         self.storage = MemoryStorage()
@@ -73,6 +80,8 @@ class BotApplication:
         self.dp.include_router(common.router)
         self.dp.include_router(search.router)
         self.dp.include_router(builds.router)
+        self.dp.include_router(community_builds.router)  # v3.0
+        self.dp.include_router(dynamic_builds.router)    # v3.0
         self.dp.include_router(loyalty.router)
         self.dp.include_router(tier_list.router)
         self.dp.include_router(settings.router)
@@ -90,6 +99,10 @@ class BotApplication:
             data["user_service"] = self.user_service
             data["api_client"] = self.api_client
             data["random_build_service"] = self.random_build_service
+            # v3.0 services
+            data["compatibility_checker"] = self.compatibility_checker
+            data["tier_evaluator"] = self.tier_evaluator
+            data["build_generator"] = self.build_generator
             return await handler(event, data)
         
         @self.dp.error()
