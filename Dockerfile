@@ -44,4 +44,4 @@ EXPOSE 8080
 RUN mkdir -p /app/logs
 
 # Запускаем бота
-CMD ["python", "main.py"]
+CMD ["python", "start.py"]
