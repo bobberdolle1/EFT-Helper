@@ -1,6 +1,7 @@
 """Keyboards package for EFT Helper bot."""
 from .reply import get_main_menu_keyboard, get_settings_keyboard
 from .inline import (
+    get_language_selection_keyboard,
     get_weapon_selection_keyboard,
     get_build_type_keyboard,
     get_traders_keyboard,
@@ -12,6 +13,7 @@ from .inline import (
 __all__ = [
     "get_main_menu_keyboard",
     "get_settings_keyboard",
+    "get_language_selection_keyboard",
     "get_weapon_selection_keyboard",
     "get_build_type_keyboard",
     "get_traders_keyboard",

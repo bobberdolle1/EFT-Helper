@@ -95,6 +95,174 @@ class BuildService:
         
         return result
     
+    async def generate_meta_build_from_preset(self, weapon_search: str, language: str = "ru"):
+        """Generate meta build from weapon's best preset using API.
+        
+        Args:
+            weapon_search: Weapon name to search for (e.g. "AK-74M", "M4A1")
+            language: Language for display
+            
+        Returns:
+            Dict with weapon, modules, and stats
+        """
+        from api_clients import TarkovAPIClient
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Search for weapon
+        api = TarkovAPIClient()
+        try:
+            logger.info(f"Searching for weapon: {weapon_search}")
+            
+            # Search weapons by name
+            search_query = f"""
+            query {{
+                items(name: "{weapon_search}") {{
+                    id
+                    name
+                    shortName
+                    avg24hPrice
+                    properties {{
+                        ... on ItemPropertiesWeapon {{
+                            caliber
+                            ergonomics
+                            recoilVertical
+                            slots {{
+                                name
+                                filters {{
+                                    allowedItems {{
+                                        id
+                                    }}
+                                }}
+                            }}
+                            defaultPreset {{
+                                id
+                                name
+                                containsItems {{
+                                    count
+                                    attributes {{
+                                        name
+                                        value
+                                    }}
+                                    item {{
+                                        id
+                                        name
+                                        shortName
+                                        avg24hPrice
+                                        buyFor {{
+                                            vendor {{
+                                                name
+                                            }}
+                                            priceRUB
+                                            requirements {{
+                                                type
+                                                value
+                                            }}
+                                        }}
+                                        properties {{
+                                            ... on ItemPropertiesWeaponMod {{
+                                                ergonomics
+                                                recoilModifier
+                                            }}
+                                            ... on ItemPropertiesMagazine {{
+                                                capacity
+                                                ergonomics
+                                            }}
+                                        }}
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+            """
+            
+            data = await api._make_graphql_request(search_query)
+            
+            if not data:
+                logger.error(f"No data returned from API for weapon: {weapon_search}")
+                return None
+            
+            if not data.get('items'):
+                logger.error(f"No items found for weapon: {weapon_search}")
+                logger.debug(f"API response: {data}")
+                return None
+            
+            logger.info(f"Found {len(data['items'])} items for {weapon_search}")
+            
+            # Filter to only items with defaultPreset (weapons, not modules)
+            weapon_data = None
+            for item in data['items']:
+                item_props = item.get('properties', {})
+                if item_props.get('defaultPreset'):
+                    weapon_data = item
+                    break
+            
+            if not weapon_data:
+                logger.error(f"No weapon with preset found for {weapon_search}")
+                return None
+            
+            logger.info(f"Selected weapon: {weapon_data.get('name')}")
+            
+            weapon_props = weapon_data.get('properties', {})
+            default_preset = weapon_props.get('defaultPreset')
+            
+            logger.info(f"Found preset: {default_preset.get('name')}")
+            
+            # Build item ID to slot name mapping
+            item_to_slot = {}
+            weapon_slots = weapon_props.get('slots', [])
+            for slot in weapon_slots:
+                slot_name = slot.get('name')
+                filters = slot.get('filters', {})
+                allowed_items = filters.get('allowedItems', [])
+                for allowed_item in allowed_items:
+                    item_to_slot[allowed_item.get('id')] = slot_name
+            
+            # Extract modules from preset
+            contained_items = default_preset.get('containsItems', [])
+            modules = []
+            total_cost = weapon_data.get('avg24hPrice', 0)
+            
+            for item in contained_items:
+                item_data = item.get('item')
+                if item_data:
+                    from services.quest_build_service import QuestBuildService
+                    quest_service = QuestBuildService(api)
+                    trader_info = quest_service._get_best_trader(item_data.get('buyFor', []))
+                    
+                    # Get slot name from item_to_slot mapping
+                    item_id = item_data.get('id')
+                    slot_name = item_to_slot.get(item_id, 'Unknown')
+                    
+                    price = item_data.get('avg24hPrice') or 0
+                    modules.append({
+                        'id': item_data.get('id'),
+                        'name': item_data.get('name', 'Unknown'),
+                        'price': price,
+                        'slot': slot_name or 'Unknown',
+                        'trader': trader_info['trader'],
+                        'trader_level': trader_info['level'],
+                        'trader_price': trader_info['price']
+                    })
+                    total_cost += price
+            
+            logger.info(f"Generated build with {len(modules)} modules, total cost: {total_cost:,}₽")
+            
+            return {
+                'weapon': weapon_data,
+                'modules': modules,
+                'preset_name': default_preset.get('name', 'Default'),
+                'total_cost': total_cost
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating meta build for {weapon_search}: {e}", exc_info=True)
+            return None
+        finally:
+            await api.close()
+    
     async def get_quest_builds(self) -> List[dict]:
         """Get all quest builds with details."""
         builds = await self.db.get_quest_builds()

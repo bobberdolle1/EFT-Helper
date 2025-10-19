@@ -6,6 +6,27 @@ from database import Weapon, Build, Trader
 from utils.constants import TRADER_EMOJIS
 
 
+def get_language_selection_keyboard() -> InlineKeyboardMarkup:
+    """Get language selection inline keyboard for first-time users."""
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🇷🇺 Русский",
+                    callback_data="lang:ru"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🇬🇧 English",
+                    callback_data="lang:en"
+                )
+            ]
+        ]
+    )
+    return keyboard
+
+
 def get_weapon_selection_keyboard(weapons: List[Weapon], language: str = "ru") -> InlineKeyboardMarkup:
     """Get weapon selection inline keyboard."""
     buttons = []
@@ -25,6 +46,12 @@ def get_build_type_keyboard(weapon_id: int, language: str = "ru") -> InlineKeybo
     """Get build type selection keyboard."""
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔧 " + ("Сборка из Preset" if language == "ru" else "Preset Build"),
+                    callback_data=f"build:preset:{weapon_id}"
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=get_text("random_build_btn", language),

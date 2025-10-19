@@ -8,16 +8,16 @@ from api_clients import TarkovAPIClient
 logger = logging.getLogger(__name__)
 
 
-# Map tarkov.dev categories to internal categories
+# Map tarkov.dev category names to internal categories
 CATEGORY_MAPPING = {
-    "pistol": WeaponCategory.PISTOL,
-    "smg": WeaponCategory.SMG,
-    "assault-rifle": WeaponCategory.ASSAULT_RIFLE,
-    "assault-carbine": WeaponCategory.ASSAULT_RIFLE,
-    "marksman-rifle": WeaponCategory.DMR,
-    "sniper-rifle": WeaponCategory.SNIPER,
-    "shotgun": WeaponCategory.SHOTGUN,
-    "machine-gun": WeaponCategory.LMG,
+    "Handgun": WeaponCategory.PISTOL,
+    "SMG": WeaponCategory.SMG,
+    "Assault rifle": WeaponCategory.ASSAULT_RIFLE,
+    "Assault carbine": WeaponCategory.ASSAULT_RIFLE,
+    "Marksman rifle": WeaponCategory.DMR,
+    "Sniper rifle": WeaponCategory.SNIPER,
+    "Shotgun": WeaponCategory.SHOTGUN,
+    "Machinegun": WeaponCategory.LMG,
 }
 
 # Tier ratings (can be customized)
@@ -100,13 +100,12 @@ class SyncService:
                 name_en = weapon_data.get("shortName", weapon_data.get("name", "Unknown"))
                 name_ru = ru_names.get(weapon_id, name_en)  # Fallback to English if no Russian
                 
-                # Determine category
+                # Determine category from category.name field
                 category = WeaponCategory.ASSAULT_RIFLE  # Default
-                types = weapon_data.get("types", [])
-                for weapon_type in types:
-                    if weapon_type in CATEGORY_MAPPING:
-                        category = CATEGORY_MAPPING[weapon_type]
-                        break
+                category_data = weapon_data.get("category", {})
+                category_name = category_data.get("name", "")
+                if category_name in CATEGORY_MAPPING:
+                    category = CATEGORY_MAPPING[category_name]
                 
                 tier_rating = TIER_RATINGS.get(name_en, None)
                 price = weapon_data.get("avg24hPrice", 0) or 0

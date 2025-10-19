@@ -97,7 +97,8 @@ class Database:
                     user_id INTEGER PRIMARY KEY,
                     language TEXT DEFAULT 'ru',
                     favorite_builds TEXT,
-                    trader_levels TEXT
+                    trader_levels TEXT,
+                    last_activity INTEGER DEFAULT 0
                 )
             """)
             

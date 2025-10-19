@@ -290,20 +290,20 @@ async def format_generated_build(build, budget: int, language: str, tier_eval: T
     
     # Weapon characteristics
     weapon_props = build.weapon_data.get("properties", {})
-    text += "📊 **" + ("ХАРАКТЕРИСТИКИ ОРУЖИЯ" if language == "ru" else "WEAPON CHARACTERISTICS") + ":**\n\n"
+    text += f"📊 **{get_text('weapon_characteristics', language)}:**\n\n"
     
     # Caliber
     if weapon_props.get("caliber"):
-        text += f"  • " + ("Калибр" if language == "ru" else "Caliber") + f": **{weapon_props['caliber']}**\n"
+        text += f"  • {get_text('caliber', language)}: **{weapon_props['caliber']}**\n"
     
     # Fire rate
     if weapon_props.get("fireRate"):
-        text += f"  • " + ("Скорострельность" if language == "ru" else "Fire Rate") + f": **{weapon_props['fireRate']}** RPM\n"
+        text += f"  • {get_text('fire_rate', language)}: **{weapon_props['fireRate']}** RPM\n"
     
     # Weapon price
     weapon_price = build.weapon_data.get("avg24hPrice", 0) or 0
     if weapon_price:
-        text += f"  • 🏪 " + ("Цена оружия" if language == "ru" else "Weapon Price") + f": **{weapon_price:,} ₽**\n"
+        text += f"  • 🏪 {get_text('weapon_price', language)}: **{weapon_price:,} ₽**\n"
     
     # Base stats for comparison
     base_ergo = weapon_props.get("ergonomics", 0)
@@ -313,40 +313,40 @@ async def format_generated_build(build, budget: int, language: str, tier_eval: T
     text += "\n"
     
     # Build stats (with weapon + mods) - show improvement
-    text += "⚔️ **" + ("ИТОГОВЫЕ ХАРАКТЕРИСТИКИ" if language == "ru" else "FINAL STATS") + ":**\n"
+    text += f"⚔️ **{get_text('final_stats', language)}:**\n"
     
     if build.ergonomics and base_ergo:
         ergo_diff = build.ergonomics - base_ergo
         ergo_sign = "📈" if ergo_diff > 0 else "➡️" if ergo_diff == 0 else "📉"
         ergo_change = f" {ergo_sign} +{ergo_diff}" if ergo_diff > 0 else f" {ergo_sign} {ergo_diff}" if ergo_diff < 0 else ""
         ergo_bar = "█" * min(int(build.ergonomics / 10), 10)
-        text += f"  • " + ("Эргономика" if language == "ru" else "Ergonomics") + f": **{build.ergonomics}**{ergo_change} {ergo_bar}\n"
+        text += f"  • {get_text('ergonomics_stat', language)}: **{build.ergonomics}**{ergo_change} {ergo_bar}\n"
     elif build.ergonomics:
         ergo_bar = "█" * min(int(build.ergonomics / 10), 10)
-        text += f"  • " + ("Эргономика" if language == "ru" else "Ergonomics") + f": **{build.ergonomics}** {ergo_bar}\n"
+        text += f"  • {get_text('ergonomics_stat', language)}: **{build.ergonomics}** {ergo_bar}\n"
     
     if build.recoil_vertical and base_recoil_v:
         recoil_v_diff = build.recoil_vertical - base_recoil_v
         recoil_sign = "📉" if recoil_v_diff < 0 else "➡️" if recoil_v_diff == 0 else "📈"
         recoil_change = f" {recoil_sign} {recoil_v_diff:+d}" if recoil_v_diff != 0 else ""
-        text += f"  • " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": **{build.recoil_vertical}**{recoil_change}\n"
+        text += f"  • {get_text('vertical_recoil', language)}: **{build.recoil_vertical}**{recoil_change}\n"
     elif build.recoil_vertical:
-        text += f"  • " + ("Вертикальная отдача" if language == "ru" else "Vertical Recoil") + f": **{build.recoil_vertical}**\n"
+        text += f"  • {get_text('vertical_recoil', language)}: **{build.recoil_vertical}**\n"
     
     if build.recoil_horizontal and base_recoil_h:
         recoil_h_diff = build.recoil_horizontal - base_recoil_h
         recoil_sign = "📉" if recoil_h_diff < 0 else "➡️" if recoil_h_diff == 0 else "📈"
         recoil_change = f" {recoil_sign} {recoil_h_diff:+d}" if recoil_h_diff != 0 else ""
-        text += f"  • " + ("Горизонтальная отдача" if language == "ru" else "Horizontal Recoil") + f": **{build.recoil_horizontal}**{recoil_change}\n"
+        text += f"  • {get_text('horizontal_recoil', language)}: **{build.recoil_horizontal}**{recoil_change}\n"
     elif build.recoil_horizontal:
-        text += f"  • " + ("Горизонтальная отдача" if language == "ru" else "Horizontal Recoil") + f": **{build.recoil_horizontal}**\n"
+        text += f"  • {get_text('horizontal_recoil', language)}: **{build.recoil_horizontal}**\n"
     
     text += "\n"
     
     # Budget info
-    text += "💰 **" + ("БЮДЖЕТ" if language == "ru" else "BUDGET") + ":**\n"
-    text += f"  • " + ("Потрачено" if language == "ru" else "Spent") + f": **{build.total_cost:,} ₽** / {budget:,} ₽\n"
-    text += f"  • " + ("Остаток" if language == "ru" else "Remaining") + f": **{build.remaining_budget:,} ₽**\n\n"
+    text += f"💰 **{get_text('budget_title', language)}:**\n"
+    text += f"  • {get_text('spent', language)}: **{build.total_cost:,} ₽** / {budget:,} ₽\n"
+    text += f"  • {get_text('remaining', language)}: **{build.remaining_budget:,} ₽**\n\n"
     
     # Availability
     if build.available_from:

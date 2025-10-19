@@ -14,6 +14,8 @@ TEXTS = {
         
         # Welcome message
         "welcome": "👋 Добро пожаловать в EFT Helper!\n\nЭтот бот поможет вам подобрать оптимальные сборки оружия для Escape from Tarkov.\n\nВыберите действие из меню ниже:",
+        "select_language": "🌍 Выберите язык / Select your language:",
+        "language_selected": "✅ Язык выбран: Русский\n\nДобро пожаловать в EFT Helper! Этот бот поможет вам подобрать оптимальные сборки оружия для Escape from Tarkov.",
         
         # Search
         "enter_weapon_name": "🔍 Введите название оружия для поиска:\n\nНапример: AK-74N, MP-153, M4A1",
@@ -211,6 +213,24 @@ TEXTS = {
         "category_lmg": "🔫 Пулемёты",
         "search_by_name": "🔍 Поиск по названию",
         
+        # Weapon stats
+        "caliber": "Калибр",
+        "fire_rate": "Скорострельность",
+        "weapon_price": "Цена оружия",
+        "weapon_characteristics": "ХАРАКТЕРИСТИКИ ОРУЖИЯ",
+        "final_stats": "ИТОГОВЫЕ ХАРАКТЕРИСТИКИ",
+        "ergonomics_stat": "Эргономика",
+        "vertical_recoil": "Вертикальная отдача",
+        "horizontal_recoil": "Горизонтальная отдача",
+        "budget_title": "БЮДЖЕТ",
+        "spent": "Потрачено",
+        "remaining": "Остаток",
+        
+        # Media types
+        "media_photo": "фото",
+        "media_video": "видео",
+        "media_document": "документ",
+        
         # Common
         "back": "◀️ Назад",
         "main_menu_btn": "🏠 Главное меню",
@@ -229,6 +249,8 @@ TEXTS = {
         
         # Welcome message
         "welcome": "👋 Welcome to EFT Helper!\n\nThis bot will help you find optimal weapon builds for Escape from Tarkov.\n\nChoose an action from the menu below:",
+        "select_language": "🌍 Выберите язык / Select your language:",
+        "language_selected": "✅ Language selected: English\n\nWelcome to EFT Helper! This bot will help you find optimal weapon builds for Escape from Tarkov.",
         
         # Search
         "enter_weapon_name": "🔍 Enter weapon name to search:\n\nFor example: AK-74N, MP-153, M4A1",
@@ -425,6 +447,24 @@ TEXTS = {
         "category_shotguns": "🔫 Shotguns",
         "category_lmg": "🔫 Machine Guns",
         "search_by_name": "🔍 Search by Name",
+        
+        # Weapon stats
+        "caliber": "Caliber",
+        "fire_rate": "Fire Rate",
+        "weapon_price": "Weapon Price",
+        "weapon_characteristics": "WEAPON CHARACTERISTICS",
+        "final_stats": "FINAL STATS",
+        "ergonomics_stat": "Ergonomics",
+        "vertical_recoil": "Vertical Recoil",
+        "horizontal_recoil": "Horizontal Recoil",
+        "budget_title": "BUDGET",
+        "spent": "Spent",
+        "remaining": "Remaining",
+        
+        # Media types
+        "media_photo": "photo",
+        "media_video": "video",
+        "media_document": "document",
         
         # Common
         "back": "◀️ Back",

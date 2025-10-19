@@ -13,11 +13,11 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from database import Database
 from api_clients import TarkovAPIClient
-from services import WeaponService, BuildService, UserService, SyncService
+from services import WeaponService, BuildService, UserService, SyncService, AdminService
 from services.random_build_service import RandomBuildService
 from services import CompatibilityChecker, TierEvaluator, BuildGenerator
 from handlers import common, search, builds, loyalty, tier_list, settings
-from handlers import community_builds, dynamic_builds
+from handlers import community_builds, dynamic_builds, admin
 
 # Load environment variables
 load_dotenv()
@@ -55,6 +55,7 @@ class BotApplication:
         self.user_service = UserService(self.db)
         self.sync_service = SyncService(self.db, self.api_client)
         self.random_build_service = RandomBuildService(self.api_client)
+        self.admin_service = AdminService(self.db)
         
         # v3.0 Services
         self.compatibility_checker = CompatibilityChecker(self.api_client)
@@ -85,6 +86,7 @@ class BotApplication:
         self.dp.include_router(loyalty.router)
         self.dp.include_router(tier_list.router)
         self.dp.include_router(settings.router)
+        self.dp.include_router(admin.router)  # Admin panel
         
         logger.info("Handlers registered")
     
@@ -99,6 +101,7 @@ class BotApplication:
             data["user_service"] = self.user_service
             data["api_client"] = self.api_client
             data["random_build_service"] = self.random_build_service
+            data["admin_service"] = self.admin_service
             # v3.0 services
             data["compatibility_checker"] = self.compatibility_checker
             data["tier_evaluator"] = self.tier_evaluator

@@ -8,6 +8,7 @@ from .compatibility_checker import CompatibilityChecker
 from .tier_evaluator import TierEvaluator
 from .build_generator import BuildGenerator, BuildGeneratorConfig, GeneratedBuild
 from .export_service import ExportService
+from .admin_service import AdminService
 
 __all__ = [
     "WeaponService",
@@ -20,5 +21,6 @@ __all__ = [
     "BuildGenerator",
     "BuildGeneratorConfig",
     "GeneratedBuild",
-    "ExportService"
+    "ExportService",
+    "AdminService"
 ]

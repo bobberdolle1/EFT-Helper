@@ -74,19 +74,38 @@ async def show_truly_random_build(message: Message, user_service, random_build_s
 
 @router.message(F.text.in_([get_text("meta_builds", "ru"), get_text("meta_builds", "en")]))
 async def show_meta_builds(message: Message, user_service, build_service):
-    """Show meta builds."""
+    """Show curated meta builds from META_BUILDS data."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from database.meta_builds_data import get_all_meta_builds
+    
     user = await user_service.get_or_create_user(message.from_user.id)
     
-    builds_data = await build_service.get_meta_builds()
-    builds = [bd["build"] for bd in builds_data]
+    # Get all meta builds from static data
+    all_builds = get_all_meta_builds()
     
-    if not builds:
+    if not all_builds:
         await message.answer(get_text("no_meta_builds", user.language))
         return
     
-    text = get_text("meta_builds_title", user.language) + "\n" + get_text("meta_builds_desc", user.language)
-    keyboard = get_builds_list_keyboard(builds, user.language)
+    text = "🏆 " + ("Мета сборки" if user.language == "ru" else "Meta Builds") + "\n\n"
+    text += ("Лучшие сборки с оптимальными характеристиками за свою цену" if user.language == "ru" 
+             else "Best builds with optimal characteristics for their price")
     
+    # Create buttons for each build
+    buttons = []
+    for build_data in all_builds[:20]:  # Limit to 20 builds
+        weapon = build_data['weapon']
+        build_type = build_data['type']
+        name = build_data.get('name_ru' if user.language == 'ru' else 'name_en', f"{weapon} {build_type}")
+        
+        buttons.append([
+            InlineKeyboardButton(
+                text=name,
+                callback_data=f"meta_build:{weapon}:{build_type}"
+            )
+        ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(text, reply_markup=keyboard)
 
 

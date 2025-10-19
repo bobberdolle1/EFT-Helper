@@ -461,10 +461,11 @@ async def start_bot():
     from aiogram import Bot, Dispatcher
     from aiogram.fsm.storage.memory import MemoryStorage
     from database.config import settings
-    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler, dynamic_builds, budget_constructor, quest_builds
+    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler, dynamic_builds, budget_constructor, quest_builds, meta_builds_handler, admin
     from services.user_service import UserService
     from services.build_service import BuildService
     from services.random_build_service import RandomBuildService
+    from services.admin_service import AdminService
     from api_clients import TarkovAPIClient
     from services.weapon_service import WeaponService
     
@@ -497,6 +498,8 @@ async def start_bot():
     dp.include_router(dynamic_builds.router)
     dp.include_router(budget_constructor.router)
     dp.include_router(quest_builds.router)
+    dp.include_router(meta_builds_handler.router)
+    dp.include_router(admin.router)  # Admin panel
     
     # Middleware to inject db and services into handlers
     @dp.update.outer_middleware()
@@ -506,6 +509,7 @@ async def start_bot():
         data["user_service"] = UserService(db)
         data["build_service"] = BuildService(db, api_client)
         data["random_build_service"] = RandomBuildService(api_client)
+        data["admin_service"] = AdminService(db)
         data["api_client"] = api_client
         data["weapon_service"] = WeaponService(db, api_client)
         return await handler(event, data)

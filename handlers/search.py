@@ -136,3 +136,99 @@ async def select_weapon(callback: CallbackQuery, user_service, weapon_service):
     
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("build:preset:"))
+async def generate_preset_build(callback: CallbackQuery, user_service, weapon_service, build_service):
+    """Generate preset build for weapon from search."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    user = await user_service.get_or_create_user(callback.from_user.id)
+    weapon_id = int(callback.data.split(":")[2])
+    
+    # Get weapon info
+    weapon = await weapon_service.get_weapon_by_id(weapon_id)
+    if not weapon:
+        await callback.answer(get_text("error", user.language))
+        return
+    
+    weapon_name = weapon.name_ru if user.language == "ru" else weapon.name_en
+    
+    # Show loading message
+    loading_text = "⏳ Генерирую сборку..." if user.language == "ru" else "⏳ Generating build..."
+    await callback.message.edit_text(loading_text)
+    
+    try:
+        # Generate build from API preset
+        build_data = await build_service.generate_meta_build_from_preset(weapon_name, user.language)
+        
+        if not build_data:
+            error_text = "❌ Не удалось сгенерировать сборку" if user.language == "ru" else "❌ Failed to generate build"
+            await callback.message.edit_text(error_text)
+            await callback.answer()
+            return
+        
+        # Format result
+        weapon_data = build_data['weapon']
+        modules = build_data.get('modules', [])
+        preset_name = build_data.get('preset_name', 'Default')
+        total_cost = build_data.get('total_cost', 0)
+        
+        # Build display text
+        text = f"🔧 **{'Сборка из Preset' if user.language == 'ru' else 'Preset Build'}**\n\n"
+        text += f"🔫 **{weapon_data.get('name')}**\n"
+        text += f"📦 Preset: {preset_name}\n\n"
+        
+        # Show modules
+        if modules:
+            text += f"🔧 **{'Модули' if user.language == 'ru' else 'Modules'} ({len(modules)}):**\n\n"
+            for i, mod in enumerate(modules[:15], 1):
+                mod_name = mod.get('name', 'Unknown')
+                mod_slot = mod.get('slot', '')
+                mod_price = mod.get('price', 0)
+                trader = mod.get('trader', 'Flea Market')
+                trader_level = mod.get('trader_level', 15)
+                
+                # Translate trader name
+                from utils.localization_helpers import localize_trader_name
+                trader_localized = localize_trader_name(trader, user.language)
+                
+                # Format trader info
+                if trader == 'Flea Market':
+                    trader_info = f"🏪 {trader_localized}"
+                else:
+                    trader_info = f"👤 {trader_localized} (LL{trader_level})"
+                
+                # Format slot info
+                slot_text = f"[{mod_slot}] " if mod_slot and mod_slot != 'Unknown' else ""
+                
+                text += f"  {i}. {slot_text}{mod_name}\n"
+                text += f"     💰 {mod_price:,}₽ | {trader_info}\n"
+            
+            if len(modules) > 15:
+                text += f"\n  ... {'и ещё' if user.language == 'ru' else 'and'} {len(modules) - 15} {'модулей' if user.language == 'ru' else 'more modules'}\n"
+            
+            text += "\n"
+        
+        # Total cost
+        text += f"💰 **{'Стоимость' if user.language == 'ru' else 'Total Cost'}:** {total_cost:,}₽\n"
+        
+        # Back button
+        back_text = "« Назад" if user.language == "ru" else "« Back"
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=back_text,
+                callback_data=f"weapon:{weapon_id}"
+            )]
+        ])
+        
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        await callback.answer()
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error generating preset build: {e}", exc_info=True)
+        error_text = get_text("error", user.language)
+        await callback.message.edit_text(error_text)
+        await callback.answer()
