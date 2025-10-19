@@ -2,12 +2,20 @@
 import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from database import Database
+from database.models import WeaponCategory
 from localization import get_text
 from keyboards import get_builds_list_keyboard
 from utils.constants import TRADER_EMOJIS
 
 logger = logging.getLogger(__name__)
+
+
+class LoyaltyBuildStates(StatesGroup):
+    """States for loyalty build filtering."""
+    waiting_for_budget = State()
 
 
 router = Router()
@@ -46,7 +54,7 @@ def get_loyalty_setup_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
         )])
     
     buttons.append([InlineKeyboardButton(
-        text=get_text("show_available_builds", language=language),
+        text=get_text("select_weapon_category", language=language),
         callback_data="show_loyalty_builds"
     )])
     
@@ -67,8 +75,14 @@ async def select_trader_level(callback: CallbackQuery, db: Database):
     trader_name = get_text(trader, language=user.language)
     text = get_text("select_loyalty_level", language=user.language, trader=trader_name)
     
+    # Fence (Скупщик) has only levels 1 and 4
+    if trader == "fence":
+        levels = [1, 4]
+    else:
+        levels = range(1, 5)
+    
     buttons = []
-    for level in range(1, 5):
+    for level in levels:
         buttons.append([InlineKeyboardButton(
             text=get_text("loyalty_level", language=user.language, level=level),
             callback_data=f"update_loyalty:{trader}:{level}"
@@ -115,32 +129,37 @@ async def update_trader_loyalty(callback: CallbackQuery, db: Database):
 
 
 @router.callback_query(F.data == "show_loyalty_builds")
-async def show_available_builds(callback: CallbackQuery, db: Database):
-    """Show builds available based on user's trader levels."""
+async def start_loyalty_filters(callback: CallbackQuery, db: Database):
+    """Start loyalty build filtering - select category."""
     user = await db.get_or_create_user(callback.from_user.id)
     
-    # Get all builds and filter by user's trader levels
-    all_weapons = await db.get_all_weapons()
-    available_builds = []
+    text = get_text("select_weapon_category", language=user.language)
     
-    for weapon in all_weapons:
-        builds = await db.get_builds_by_weapon(weapon.id)
-        for build in builds:
-            # Check if all modules are available with user's levels
-            modules = await db.get_modules_by_ids(build.modules)
-            if all(user.trader_levels.get(m.trader.lower(), 1) >= m.loyalty_level for m in modules):
-                available_builds.append(build)
+    # Create category selection keyboard
+    categories = [
+        ("any", get_text("any_category", user.language)),
+        (WeaponCategory.ASSAULT_RIFLE.value, get_text("category_assault_rifles", user.language)),
+        (WeaponCategory.SMG.value, get_text("category_smg", user.language)),
+        (WeaponCategory.DMR.value, get_text("category_dmr", user.language)),
+        (WeaponCategory.SNIPER.value, get_text("category_sniper_rifles", user.language)),
+        (WeaponCategory.SHOTGUN.value, get_text("category_shotguns", user.language)),
+        (WeaponCategory.PISTOL.value, get_text("category_pistols", user.language)),
+        (WeaponCategory.LMG.value, get_text("category_lmg", user.language)),
+    ]
     
-    if not available_builds:
-        text = get_text("no_builds_found", language=user.language)
-        await callback.message.edit_text(text)
-        await callback.answer()
-        return
+    buttons = []
+    for cat_value, cat_name in categories:
+        buttons.append([InlineKeyboardButton(
+            text=cat_name,
+            callback_data=f"loyalty_category:{cat_value}"
+        )])
     
-    text = f"📋 {get_text('show_available_builds', language=user.language)}\n\n"
-    text += f"Найдено сборок: {len(available_builds)}" if user.language == "ru" else f"Found {len(available_builds)} builds"
+    buttons.append([InlineKeyboardButton(
+        text=get_text("back", user.language),
+        callback_data="back_to_loyalty_setup"
+    )])
     
-    keyboard = get_builds_list_keyboard(available_builds[:20], user.language)  # Limit to 20
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer()
 
@@ -168,9 +187,179 @@ async def reset_loyalty_levels(callback: CallbackQuery, db: Database):
     await callback.message.edit_text(text, reply_markup=keyboard)
 
 
+@router.callback_query(F.data.startswith("loyalty_category:"))
+async def select_category_for_loyalty(callback: CallbackQuery, db: Database, state: FSMContext):
+    """Handle category selection and ask for budget."""
+    user = await db.get_or_create_user(callback.from_user.id)
+    category = callback.data.split(":")[1]
+    
+    # Store category in state
+    await state.update_data(loyalty_category=category)
+    
+    # Ask for budget
+    text = get_text("enter_max_budget", language=user.language)
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=get_text("skip_budget", user.language),
+                callback_data="loyalty_skip_budget"
+            )],
+            [InlineKeyboardButton(
+                text=get_text("back", user.language),
+                callback_data="back_to_loyalty_setup"
+            )]
+        ]
+    )
+    
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await state.set_state(LoyaltyBuildStates.waiting_for_budget)
+    await callback.answer()
+
+
+@router.message(LoyaltyBuildStates.waiting_for_budget)
+async def process_budget_input(message: Message, db: Database, state: FSMContext):
+    """Process budget input."""
+    user = await db.get_or_create_user(message.from_user.id)
+    
+    budget = None
+    if message.text and message.text.strip().isdigit():
+        budget = int(message.text.strip())
+        await message.answer(get_text("budget_set_to", language=user.language, budget=f"{budget:,}"))
+    else:
+        await message.answer(get_text("invalid_budget_format", language=user.language))
+        return
+    
+    # Get category from state
+    data = await state.get_data()
+    category = data.get("loyalty_category", "any")
+    
+    # Clear state
+    await state.clear()
+    
+    # Show filtered builds
+    await show_filtered_loyalty_builds(message, db, user, category, budget)
+
+
+@router.callback_query(F.data == "loyalty_skip_budget", LoyaltyBuildStates.waiting_for_budget)
+async def skip_budget_input(callback: CallbackQuery, db: Database, state: FSMContext):
+    """Skip budget filter."""
+    user = await db.get_or_create_user(callback.from_user.id)
+    
+    # Get category from state
+    data = await state.get_data()
+    category = data.get("loyalty_category", "any")
+    
+    # Clear state
+    await state.clear()
+    
+    await callback.answer(get_text("no_budget_limit", language=user.language))
+    
+    # Show filtered builds without budget limit
+    await show_filtered_loyalty_builds(callback.message, db, user, category, None)
+
+
+async def show_filtered_loyalty_builds(message, db: Database, user, category: str, max_budget: int = None):
+    """Generate build via API with loyalty, category, and budget constraints."""
+    from api_clients import TarkovAPIClient
+    from services import BuildGenerator, BuildGeneratorConfig, CompatibilityChecker, TierEvaluator
+    
+    logger.info(f"Generating loyalty build: category={category}, budget={max_budget}")
+    logger.info(f"User trader levels: {user.trader_levels}")
+    
+    # Show loading message
+    loading_msg = await message.answer(get_text("generating_build", user.language))
+    
+    # Initialize services
+    api_client = TarkovAPIClient()
+    compatibility = CompatibilityChecker(api_client)
+    tier_eval = TierEvaluator()
+    generator = BuildGenerator(api_client, compatibility, tier_eval)
+    
+    # Map category to weapon type string for API
+    weapon_type = None
+    if category != "any":
+        category_map = {
+            "assault_rifle": "Assault rifle",
+            "smg": "SMG",
+            "dmr": "Marksman rifle",
+            "sniper": "Sniper rifle",
+            "shotgun": "Shotgun",
+            "pistol": "Pistol",
+            "lmg": "Machine gun"
+        }
+        weapon_type = category_map.get(category)
+    
+    # Create configuration
+    config = BuildGeneratorConfig(
+        budget=max_budget,
+        trader_levels=user.trader_levels,
+        use_flea_only=False,
+        weapon_type=weapon_type,
+        prioritize_ergonomics=False,
+        prioritize_recoil=True
+    )
+    
+    # Generate build
+    try:
+        build = await generator.generate_random_build(config, language=user.language)
+        
+        if not build:
+            await loading_msg.edit_text(get_text("no_builds_found", user.language))
+            return
+        
+        # Format and display build
+        from handlers.dynamic_builds import format_generated_build
+        text = await format_generated_build(build, max_budget, user.language, tier_eval)
+        
+        # Action buttons
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=get_text("regenerate", user.language) if user.language == "ru" else "🔄 Regenerate",
+                        callback_data=f"loyalty_regenerate:{category}:{max_budget}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=get_text("back", user.language),
+                        callback_data="back_to_loyalty_setup"
+                    )
+                ]
+            ]
+        )
+        
+        await loading_msg.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        logger.info(f"Successfully generated loyalty build")
+        
+    except Exception as e:
+        logger.error(f"Error generating loyalty build: {e}")
+        await loading_msg.edit_text(get_text("error", user.language))
+
+
+@router.callback_query(F.data.startswith("loyalty_regenerate:"))
+async def regenerate_loyalty_build(callback: CallbackQuery, db: Database):
+    """Regenerate build with same parameters."""
+    user = await db.get_or_create_user(callback.from_user.id)
+    
+    # Parse parameters from callback data
+    parts = callback.data.split(":")
+    category = parts[1]
+    budget = int(parts[2]) if parts[2] != "None" else None
+    
+    # Delete old message and generate new build
+    await callback.message.delete()
+    await show_filtered_loyalty_builds(callback.message, db, user, category, budget)
+    await callback.answer()
+
+
 @router.callback_query(F.data == "back_to_loyalty_setup")
-async def back_to_loyalty_setup(callback: CallbackQuery, db: Database):
+async def back_to_loyalty_setup(callback: CallbackQuery, db: Database, state: FSMContext):
     """Go back to loyalty setup screen."""
+    # Clear any active state
+    await state.clear()
+    
     user = await db.get_or_create_user(callback.from_user.id)
     
     text = get_text("setup_loyalty_levels", language=user.language) + "\n\n"

@@ -102,15 +102,30 @@ class BuildGenerator:
         weapon_id = weapon_data.get("id")
         weapon_name = weapon_data.get("name", "Unknown")
         
-        # 2. Get weapon slots
+        # 2. Get weapon slots and default modules
         slots = await self.compatibility.get_weapon_slots(weapon_id)
         if not slots:
             logger.warning(f"No slots found for weapon {weapon_id}")
             return None
         
+        # Get default preset to know which modules are pre-installed
+        default_preset = weapon_data.get("properties", {}).get("defaultPreset", {})
+        default_modules = {}
+        default_modules_cost = 0
+        
+        if default_preset:
+            contained_items = default_preset.get("containsItems", [])
+            for item in contained_items:
+                # Map default modules to slots
+                item_id = item.get("item", {}).get("id")
+                # Store for comparison later
+                if item_id:
+                    default_modules[item_id] = item.get("item", {})
+        
         # 3. Generate modules for each slot
         selected_modules = {}
         total_module_cost = 0
+        replaced_default_cost = 0  # Track cost of replaced default modules
         
         # Prioritize required slots first
         required_slots = [s for s in slots if s.get("required", False)]
@@ -126,6 +141,13 @@ class BuildGenerator:
                 selected_modules[slot_name] = module
                 module_price = self._get_module_price(module, config.use_flea_only)
                 total_module_cost += module_price
+                
+                # Check if we're replacing a default module
+                module_id = module.get("id")
+                if module_id in default_modules:
+                    default_mod_price = default_modules[module_id].get("avg24hPrice", 0) or 0
+                    replaced_default_cost += default_mod_price
+                    logger.debug(f"Replaced default module {module_id}, subtracting {default_mod_price} from total")
         
         # Process optional slots with remaining budget
         random.shuffle(optional_slots)  # Randomize order
@@ -145,6 +167,19 @@ class BuildGenerator:
                 selected_modules[slot_name] = module
                 module_price = self._get_module_price(module, config.use_flea_only)
                 total_module_cost += module_price
+                
+                # Check if we're replacing a default module
+                module_id = module.get("id")
+                if module_id in default_modules:
+                    # This module was in the default preset, so weapon price already includes it
+                    default_mod_price = default_modules[module_id].get("avg24hPrice", 0) or 0
+                    replaced_default_cost += default_mod_price
+                    logger.debug(f"Replaced default module {module_id}, subtracting {default_mod_price} from total")
+        
+        # Adjust total cost to account for replaced default modules
+        # Weapon price includes default modules, so subtract those we replaced
+        actual_total_cost = weapon_price + total_module_cost - replaced_default_cost
+        logger.info(f"Cost breakdown: weapon={weapon_price}, new_modules={total_module_cost}, replaced_defaults={replaced_default_cost}, actual_total={actual_total_cost}")
         
         # 4. Calculate final stats
         base_props = weapon_data.get("properties", {})
@@ -172,7 +207,7 @@ class BuildGenerator:
             ergonomics=final_ergo,
             recoil_vertical=final_recoil_v,
             recoil_horizontal=final_recoil_h,
-            total_cost=weapon_price + total_module_cost,
+            total_cost=actual_total_cost,
             has_all_required_slots=has_all_required,
             has_sight=has_sight,
             has_stock=has_stock,
@@ -189,8 +224,8 @@ class BuildGenerator:
             weapon_name=weapon_name,
             weapon_data=weapon_data,
             modules=selected_modules,
-            total_cost=weapon_price + total_module_cost,
-            remaining_budget=remaining_budget - total_module_cost,
+            total_cost=actual_total_cost,
+            remaining_budget=remaining_budget - (total_module_cost - replaced_default_cost),
             ergonomics=final_ergo,
             recoil_vertical=final_recoil_v,
             recoil_horizontal=final_recoil_h,

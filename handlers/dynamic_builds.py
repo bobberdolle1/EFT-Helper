@@ -300,10 +300,23 @@ async def format_generated_build(build, budget: int, language: str, tier_eval: T
     if weapon_props.get("fireRate"):
         text += f"  • {get_text('fire_rate', language)}: **{weapon_props['fireRate']}** RPM\n"
     
-    # Weapon price
+    # Weapon price and trader info
     weapon_price = build.weapon_data.get("avg24hPrice", 0) or 0
     if weapon_price:
         text += f"  • 🏪 {get_text('weapon_price', language)}: **{weapon_price:,} ₽**\n"
+    
+    # Show weapon trader availability
+    weapon_traders = build.weapon_data.get("buyFor", [])
+    if weapon_traders:
+        for trader_info in weapon_traders[:3]:  # Show up to 3 traders
+            trader_name = trader_info.get("vendor", {}).get("name", "Unknown")
+            price = trader_info.get("price", 0)
+            trader_level = trader_info.get("vendor", {}).get("minLevel")
+            currency = trader_info.get("currency", "RUB")
+            
+            if trader_name != "Flea Market":
+                level_text = f" (Lvl {trader_level})" if trader_level else ""
+                text += f"  • 🤝 {trader_name}{level_text}: {price:,} {currency}\n"
     
     # Base stats for comparison
     base_ergo = weapon_props.get("ergonomics", 0)
@@ -353,16 +366,50 @@ async def format_generated_build(build, budget: int, language: str, tier_eval: T
         sources = ", ".join(build.available_from)
         text += f"\n{get_text('build_available_from', language, sources=sources)}\n"
     
-    # Modules
+    # Modules with trader info
     if build.modules:
         text += f"\n{get_text('build_modules_list', language)}\n"
         count = 0
         for slot_name, module_data in build.modules.items():
             if count >= 10:  # Limit to 10 modules for display
-                text += f"  ... и ещё {len(build.modules) - 10} модулей\n"
+                remaining = len(build.modules) - 10
+                text += f"  ... {'и ещё' if language == 'ru' else 'and'} {remaining} {'модулей' if language == 'ru' else 'more modules'}\n"
                 break
-            module_name = module_data.get("name", slot_name)
-            text += f"  • {module_name}\n"
+            
+            module_name = module_data.get("shortName") or module_data.get("name", slot_name)
+            module_price = module_data.get("avg24hPrice", 0) or 0
+            
+            # Get best trader for this module
+            traders = module_data.get("buyFor", [])
+            trader_info_text = ""
+            
+            if traders:
+                # Find best trader (not flea market)
+                best_trader = None
+                for trader in traders:
+                    trader_name = trader.get("vendor", {}).get("name", "")
+                    if trader_name and trader_name != "Flea Market":
+                        best_trader = trader
+                        break
+                
+                if best_trader:
+                    trader_name = best_trader.get("vendor", {}).get("name", "")
+                    trader_level = best_trader.get("vendor", {}).get("minLevel")
+                    trader_price = best_trader.get("price", 0)
+                    
+                    # Translate trader name
+                    trader_name_key = trader_name.lower().replace(" ", "")
+                    if trader_name_key in ["prapor", "therapist", "fence", "skier", "peacekeeper", "mechanic", "ragman", "jaeger"]:
+                        trader_name_localized = get_text(trader_name_key, language)
+                    else:
+                        trader_name_localized = trader_name
+                    
+                    if trader_level:
+                        trader_info_text = f" | {trader_name_localized} Lvl{trader_level} ({trader_price:,}₽)"
+                    else:
+                        trader_info_text = f" | {trader_name_localized} ({trader_price:,}₽)"
+            
+            text += f"  • {module_name}{trader_info_text}\n"
             count += 1
     
     # Improvement suggestions
