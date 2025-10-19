@@ -461,7 +461,7 @@ async def start_bot():
     from aiogram import Bot, Dispatcher
     from aiogram.fsm.storage.memory import MemoryStorage
     from database.config import settings
-    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler, dynamic_builds, budget_constructor
+    from handlers import common, search, builds, loyalty, tier_list, settings as settings_handler, dynamic_builds, budget_constructor, quest_builds
     from services.user_service import UserService
     from services.build_service import BuildService
     from services.random_build_service import RandomBuildService
@@ -496,6 +496,7 @@ async def start_bot():
     dp.include_router(settings_handler.router)
     dp.include_router(dynamic_builds.router)
     dp.include_router(budget_constructor.router)
+    dp.include_router(quest_builds.router)
     
     # Middleware to inject db and services into handlers
     @dp.update.outer_middleware()

@@ -146,6 +146,26 @@ class TarkovAPIClient:
                                     name
                                     shortName
                                     avg24hPrice
+                                    buyFor {{
+                                        vendor {{
+                                            name
+                                        }}
+                                        priceRUB
+                                        requirements {{
+                                            type
+                                            value
+                                        }}
+                                    }}
+                                    properties {{
+                                        ... on ItemPropertiesWeaponMod {{
+                                            ergonomics
+                                            recoilModifier
+                                        }}
+                                        ... on ItemPropertiesMagazine {{
+                                            capacity
+                                            ergonomics
+                                        }}
+                                    }}
                                 }}
                                 excludedItems {{
                                     id
@@ -308,6 +328,19 @@ class TarkovAPIClient:
                     type
                     description
                     optional
+                    ... on TaskObjectiveBuildItem {{
+                        item {{
+                            id
+                            name
+                        }}
+                        attributes {{
+                            name
+                            requirement {{
+                                compareMethod
+                                value
+                            }}
+                        }}
+                    }}
                 }}
             }}
         }}
@@ -456,8 +489,40 @@ class TarkovAPIClient:
                         recoilVertical
                         recoilHorizontal
                         fireRate
+                        defaultHeight
+                        defaultWidth
                         defaultPreset {{
                             id
+                            name
+                            containsItems {{
+                                count
+                                item {{
+                                    id
+                                    name
+                                    shortName
+                                    avg24hPrice
+                                    buyFor {{
+                                        vendor {{
+                                            name
+                                        }}
+                                        priceRUB
+                                        requirements {{
+                                            type
+                                            value
+                                        }}
+                                    }}
+                                    properties {{
+                                        ... on ItemPropertiesWeaponMod {{
+                                            ergonomics
+                                            recoilModifier
+                                        }}
+                                        ... on ItemPropertiesMagazine {{
+                                            capacity
+                                            ergonomics
+                                        }}
+                                    }}
+                                }}
+                            }}
                         }}
                         slots {{
                             id
@@ -474,6 +539,26 @@ class TarkovAPIClient:
                                     name
                                     shortName
                                     avg24hPrice
+                                    buyFor {{
+                                        vendor {{
+                                            name
+                                        }}
+                                        priceRUB
+                                        requirements {{
+                                            type
+                                            value
+                                        }}
+                                    }}
+                                    properties {{
+                                        ... on ItemPropertiesWeaponMod {{
+                                            ergonomics
+                                            recoilModifier
+                                        }}
+                                        ... on ItemPropertiesMagazine {{
+                                            capacity
+                                            ergonomics
+                                        }}
+                                    }}
                                 }}
                                 excludedItems {{
                                     id

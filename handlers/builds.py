@@ -355,6 +355,25 @@ async def show_quest_detail(callback: CallbackQuery, user_service, api_client, b
             text += f"  • {req_name}\n"
         text += "\n"
     
+    # Check for buildWeapon objectives and parse requirements
+    from services.quest_build_service import QuestBuildService
+    quest_service = QuestBuildService(api_client)
+    
+    build_objective = None
+    for obj in objectives:
+        if obj.get('type') == 'buildWeapon':
+            build_objective = obj
+            break
+    
+    has_build_requirements = False
+    if build_objective:
+        requirements = quest_service.parse_quest_requirements(build_objective)
+        if requirements:
+            has_build_requirements = True
+            # Show requirements
+            text += quest_service.format_requirements_text(requirements, user.language)
+            text += "\n"
+    
     if objectives:
         text += f"🎯 **{get_text('quest_objectives', user.language)}:**\n"
         for i, obj in enumerate(objectives[:10], 1):  # Limit to 10 objectives
@@ -367,30 +386,20 @@ async def show_quest_detail(callback: CallbackQuery, user_service, api_client, b
             text += f"  ... {get_text('quest_and_more', user.language)} {len(objectives) - 10} {get_text('quest_more_objectives', user.language)}\n"
         text += "\n"
     
-    # Try to find a recommended build for this quest
-    # Look for builds with quest_name matching this quest
-    quest_builds = await db.get_quest_builds()
-    matching_build = None
+    # Add button to generate build if quest has build requirements
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
-    for build in quest_builds:
-        # Check if quest_name in build matches the current quest name
-        # Use language-specific quest_name field
-        build_quest_name = build.quest_name_ru if user.language == "ru" else build.quest_name_en
-        if build_quest_name and (build_quest_name.lower() in name.lower() or name.lower() in build_quest_name.lower()):
-            matching_build = build
-            break
+    keyboard = None
+    if has_build_requirements:
+        build_text = "🔧 Собрать сборку" if user.language == "ru" else "🔧 Build Weapon"
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=build_text,
+                callback_data=f"build_quest:{quest_id}"
+            )]
+        ])
     
-    # If found a matching build, display it
-    if matching_build:
-        weapon = await db.get_weapon_by_id(matching_build.weapon_id)
-        modules = await db.get_modules_by_ids(matching_build.modules)
-        
-        if weapon:
-            text += f"\n🔧 **{get_text('quest_recommended_build', user.language)}:**\n\n"
-            build_card = await format_build_card(matching_build, weapon, modules, user.language)
-            text += build_card
-    
-    await callback.message.edit_text(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
 

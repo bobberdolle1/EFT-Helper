@@ -16,10 +16,6 @@ def get_main_menu_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=get_text("meta_builds", language))
             ],
             [
-                KeyboardButton(text=get_text("community_builds", language)),
-                KeyboardButton(text=get_text("my_builds", language))
-            ],
-            [
                 KeyboardButton(text=get_text("all_quest_builds", language)),
                 KeyboardButton(text=get_text("loyalty_builds", language))
             ],
