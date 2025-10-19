@@ -93,11 +93,16 @@ class BuildGenerator:
             return None
         
         weapon_price = weapon_data.get("avg24hPrice", 0) or 0
-        remaining_budget = config.budget - weapon_price
         
-        if remaining_budget < 0:
-            logger.warning(f"Weapon price {weapon_price} exceeds budget {config.budget}")
-            return None
+        # Handle unlimited budget (None)
+        if config.budget is None or config.budget <= 0:
+            remaining_budget = 999999999  # Effectively unlimited
+        else:
+            remaining_budget = config.budget - weapon_price
+            
+            if remaining_budget < 0:
+                logger.warning(f"Weapon price {weapon_price} exceeds budget {config.budget}")
+                return None
         
         weapon_id = weapon_data.get("id")
         weapon_name = weapon_data.get("name", "Unknown")
@@ -155,8 +160,8 @@ class BuildGenerator:
             if total_module_cost >= remaining_budget:
                 break
             
-            # 30% chance to skip optional slots for variety
-            if random.random() < 0.3:
+            # 10% chance to skip optional slots for variety (reduced to add more mods)
+            if random.random() < 0.1:
                 continue
             
             module = await self._select_module_for_slot(
@@ -257,11 +262,16 @@ class BuildGenerator:
             return None
         
         weapon_price = weapon_data.get("avg24hPrice", 0) or 0
-        remaining_budget = config.budget - weapon_price
         
-        if remaining_budget < 0:
-            logger.warning(f"Weapon price {weapon_price} exceeds budget {config.budget}")
-            return None
+        # Handle unlimited budget (None)
+        if config.budget is None or config.budget <= 0:
+            remaining_budget = 999999999  # Effectively unlimited
+        else:
+            remaining_budget = config.budget - weapon_price
+            
+            if remaining_budget < 0:
+                logger.warning(f"Weapon price {weapon_price} exceeds budget {config.budget}")
+                return None
         
         weapon_name = weapon_data.get("name", "Unknown")
         
@@ -296,8 +306,8 @@ class BuildGenerator:
             if total_module_cost >= remaining_budget:
                 break
             
-            # 30% chance to skip optional slots for variety
-            if random.random() < 0.3:
+            # 10% chance to skip optional slots for variety (reduced to add more mods)
+            if random.random() < 0.1:
                 continue
             
             module = await self._select_module_for_slot(
@@ -369,10 +379,37 @@ class BuildGenerator:
         """Select a suitable weapon within budget."""
         weapons = await self.api.get_all_weapons(lang=language)
         
-        # Filter by type if specified
+        # Filter by type if specified - be more flexible with matching
         if config.weapon_type:
-            weapons = [w for w in weapons if config.weapon_type.lower() in 
-                      (w.get("category", {}).get("name", "").lower())]
+            # Log unique categories for debugging
+            unique_cats = set()
+            for w in weapons:
+                cat_name = w.get("category", {}).get("name", "")
+                if cat_name:
+                    unique_cats.add(cat_name)
+            logger.info(f"Available categories: {sorted(unique_cats)}")
+            
+            filtered = []
+            search_term = config.weapon_type.lower().replace(" ", "")
+            for w in weapons:
+                cat_name = w.get("category", {}).get("name", "").lower().replace(" ", "")
+                # Match if weapon_type is in category name or vice versa (without spaces)
+                if search_term in cat_name or cat_name in search_term:
+                    filtered.append(w)
+                    logger.debug(f"Matched weapon: {w.get('name')} with category: {w.get('category', {}).get('name')}")
+            weapons = filtered
+            logger.info(f"Filtered to {len(weapons)} weapons for category '{config.weapon_type}'")
+        
+        # Handle unlimited budget (None)
+        if not config.budget or config.budget <= 0:
+            # No budget limit - select any weapon with valid price
+            suitable_weapons = [w for w in weapons if w.get("avg24hPrice")]
+            if suitable_weapons:
+                # Sort by price and pick from top tier
+                suitable_weapons.sort(key=lambda w: w.get("avg24hPrice"), reverse=True)
+                top_tier_count = max(1, len(suitable_weapons) // 3)
+                return random.choice(suitable_weapons[:top_tier_count])
+            return None
         
         # Universal smart budget allocation for ANY budget:
         # - Weapon takes 30-50% of budget (leaves 50-70% for mods)
@@ -397,6 +434,8 @@ class BuildGenerator:
         
         min_weapon_price = int(config.budget * min_percentage)
         max_weapon_price = int(config.budget * max_percentage)
+        
+        logger.info(f"Budget range for weapon: {min_weapon_price:,} - {max_weapon_price:,}")
         
         # Filter weapons in appropriate price range
         # Only include weapons with valid prices (not None)
@@ -453,37 +492,48 @@ class BuildGenerator:
             filters = slot.get("filters", {})
             compatible_modules = filters.get("allowedItems", [])
         
-        # Filter out modules without valid ID or price (likely invalid/removed items)
+        # Filter out modules without valid ID
         compatible_modules = [
             m for m in compatible_modules
-            if m.get("id") and isinstance(m.get("avg24hPrice"), (int, type(None)))
+            if m.get("id")
         ]
+        
+        logger.debug(f"Found {len(compatible_modules)} compatible modules for slot {slot.get('nameId')}")
         
         if not compatible_modules:
+            logger.debug(f"No compatible modules for slot {slot.get('nameId')}")
             return None
         
-        # Filter by budget
-        affordable = [
-            m for m in compatible_modules
-            if self._get_module_price(m, config.use_flea_only) <= remaining_budget
-        ]
+        # For unlimited budget, skip budget filtering
+        if not config.budget or config.budget <= 0:
+            affordable = compatible_modules
+        else:
+            # Filter by budget
+            affordable = [
+                m for m in compatible_modules
+                if self._get_module_price(m, config.use_flea_only) <= remaining_budget
+            ]
+        
+        logger.debug(f"After budget filter: {len(affordable)} modules")
         
         if not affordable:
+            logger.debug(f"No affordable modules for budget {remaining_budget}")
             return None
         
         # Filter by trader loyalty if not using flea only
+        trader_available = affordable
         if not config.use_flea_only:
-            affordable = [
+            trader_available = [
                 m for m in affordable
                 if self._is_module_available(m, config.trader_levels)
             ]
         
-        if not affordable:
-            # If no modules available from traders, allow flea market
-            affordable = [
-                m for m in compatible_modules
-                if self._get_module_price(m, True) <= remaining_budget
-            ]
+        logger.debug(f"After loyalty filter: {len(trader_available)} modules")
+        
+        # If no modules available from traders, use flea market
+        if not trader_available:
+            logger.debug("No trader modules available, using flea market")
+            trader_available = affordable
         
         if not affordable:
             return None

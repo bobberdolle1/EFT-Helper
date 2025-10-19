@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 class LoyaltyBuildStates(StatesGroup):
     """States for loyalty build filtering."""
     waiting_for_budget = State()
+    waiting_for_flea_choice = State()
 
 
 router = Router()
@@ -230,15 +231,29 @@ async def process_budget_input(message: Message, db: Database, state: FSMContext
         await message.answer(get_text("invalid_budget_format", language=user.language))
         return
     
-    # Get category from state
-    data = await state.get_data()
-    category = data.get("loyalty_category", "any")
+    # Store budget and ask for flea market choice
+    await state.update_data(loyalty_budget=budget)
     
-    # Clear state
-    await state.clear()
+    text = get_text("select_flea_market", language=user.language)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=get_text("traders_only", user.language),
+                callback_data="loyalty_flea:no"
+            )],
+            [InlineKeyboardButton(
+                text=get_text("with_flea_market", user.language),
+                callback_data="loyalty_flea:yes"
+            )],
+            [InlineKeyboardButton(
+                text=get_text("back", user.language),
+                callback_data="back_to_loyalty_setup"
+            )]
+        ]
+    )
     
-    # Show filtered builds
-    await show_filtered_loyalty_builds(message, db, user, category, budget)
+    await message.answer(text, reply_markup=keyboard)
+    await state.set_state(LoyaltyBuildStates.waiting_for_flea_choice)
 
 
 @router.callback_query(F.data == "loyalty_skip_budget", LoyaltyBuildStates.waiting_for_budget)
@@ -246,20 +261,56 @@ async def skip_budget_input(callback: CallbackQuery, db: Database, state: FSMCon
     """Skip budget filter."""
     user = await db.get_or_create_user(callback.from_user.id)
     
-    # Get category from state
+    await callback.answer(get_text("no_budget_limit", language=user.language))
+    
+    # Store unlimited budget and ask for flea market choice
+    await state.update_data(loyalty_budget=None)
+    
+    text = get_text("select_flea_market", language=user.language)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=get_text("traders_only", user.language),
+                callback_data="loyalty_flea:no"
+            )],
+            [InlineKeyboardButton(
+                text=get_text("with_flea_market", user.language),
+                callback_data="loyalty_flea:yes"
+            )],
+            [InlineKeyboardButton(
+                text=get_text("back", user.language),
+                callback_data="back_to_loyalty_setup"
+            )]
+        ]
+    )
+    
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await state.set_state(LoyaltyBuildStates.waiting_for_flea_choice)
+
+
+@router.callback_query(F.data.startswith("loyalty_flea:"), LoyaltyBuildStates.waiting_for_flea_choice)
+async def process_flea_choice(callback: CallbackQuery, db: Database, state: FSMContext):
+    """Process flea market choice and generate build."""
+    user = await db.get_or_create_user(callback.from_user.id)
+    
+    # Parse flea choice
+    use_flea = callback.data.split(":")[1] == "yes"
+    
+    # Get stored data
     data = await state.get_data()
     category = data.get("loyalty_category", "any")
+    budget = data.get("loyalty_budget")
     
     # Clear state
     await state.clear()
     
-    await callback.answer(get_text("no_budget_limit", language=user.language))
-    
-    # Show filtered builds without budget limit
-    await show_filtered_loyalty_builds(callback.message, db, user, category, None)
+    # Delete old message and generate build
+    await callback.message.delete()
+    await show_filtered_loyalty_builds(callback.message, db, user, category, budget, use_flea)
+    await callback.answer()
 
 
-async def show_filtered_loyalty_builds(message, db: Database, user, category: str, max_budget: int = None):
+async def show_filtered_loyalty_builds(message, db: Database, user, category: str, max_budget: int = None, use_flea: bool = False):
     """Generate build via API with loyalty, category, and budget constraints."""
     from api_clients import TarkovAPIClient
     from services import BuildGenerator, BuildGeneratorConfig, CompatibilityChecker, TierEvaluator
@@ -277,24 +328,36 @@ async def show_filtered_loyalty_builds(message, db: Database, user, category: st
     generator = BuildGenerator(api_client, compatibility, tier_eval)
     
     # Map category to weapon type string for API
+    # Use Russian names if user language is Russian, English otherwise
     weapon_type = None
     if category != "any":
-        category_map = {
-            "assault_rifle": "Assault rifle",
-            "smg": "SMG",
-            "dmr": "Marksman rifle",
-            "sniper": "Sniper rifle",
-            "shotgun": "Shotgun",
-            "pistol": "Pistol",
-            "lmg": "Machine gun"
-        }
+        if user.language == "ru":
+            category_map = {
+                "assault_rifle": "Штурмовая винтовка",
+                "smg": "Пистолет-пулемет",
+                "dmr": "Марксманская винтовка",
+                "sniper": "Снайперская винтовка",
+                "shotgun": "Дробовик",
+                "pistol": "Пистолет",
+                "lmg": "Пулемет"
+            }
+        else:
+            category_map = {
+                "assault_rifle": "Assault rifle",
+                "smg": "Submachine gun",
+                "dmr": "Marksman rifle",
+                "sniper": "Sniper rifle",
+                "shotgun": "Shotgun",
+                "pistol": "Pistol",
+                "lmg": "Machine gun"
+            }
         weapon_type = category_map.get(category)
     
     # Create configuration
     config = BuildGeneratorConfig(
         budget=max_budget,
         trader_levels=user.trader_levels,
-        use_flea_only=False,
+        use_flea_only=use_flea,
         weapon_type=weapon_type,
         prioritize_ergonomics=False,
         prioritize_recoil=True
@@ -317,8 +380,8 @@ async def show_filtered_loyalty_builds(message, db: Database, user, category: st
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=get_text("regenerate", user.language) if user.language == "ru" else "🔄 Regenerate",
-                        callback_data=f"loyalty_regenerate:{category}:{max_budget}"
+                        text=get_text("regenerate", user.language),
+                        callback_data=f"loyalty_regenerate:{category}:{max_budget}:{use_flea}"
                     )
                 ],
                 [
@@ -347,10 +410,11 @@ async def regenerate_loyalty_build(callback: CallbackQuery, db: Database):
     parts = callback.data.split(":")
     category = parts[1]
     budget = int(parts[2]) if parts[2] != "None" else None
+    use_flea = parts[3] == "True" if len(parts) > 3 else False
     
     # Delete old message and generate new build
     await callback.message.delete()
-    await show_filtered_loyalty_builds(callback.message, db, user, category, budget)
+    await show_filtered_loyalty_builds(callback.message, db, user, category, budget, use_flea)
     await callback.answer()
 
 

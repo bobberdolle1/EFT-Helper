@@ -94,6 +94,9 @@ TEXTS = {
         "loyalty_builds_filters": "📋 Фильтры:\n  • Категория: {category}\n  • Бюджет: {budget}",
         "found_builds": "Найдено сборок: {count}",
         "regenerate": "🔄 Перегенерировать",
+        "select_flea_market": "Использовать барахолку?",
+        "traders_only": "🤝 Только торговцы",
+        "with_flea_market": "🏪 С барахолкой",
         
         # Best weapons
         "best_weapons_title": "⭐ Лучшее оружие по категориям",
@@ -339,6 +342,9 @@ TEXTS = {
         "loyalty_builds_filters": "📋 Filters:\n  • Category: {category}\n  • Budget: {budget}",
         "found_builds": "Found {count} builds",
         "regenerate": "🔄 Regenerate",
+        "select_flea_market": "Use flea market?",
+        "traders_only": "🤝 Traders Only",
+        "with_flea_market": "🏪 With Flea Market",
         
         # Best weapons
         "best_weapons_title": "⭐ Best Weapons by Category",

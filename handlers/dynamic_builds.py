@@ -358,8 +358,12 @@ async def format_generated_build(build, budget: int, language: str, tier_eval: T
     
     # Budget info
     text += f"💰 **{get_text('budget_title', language)}:**\n"
-    text += f"  • {get_text('spent', language)}: **{build.total_cost:,} ₽** / {budget:,} ₽\n"
-    text += f"  • {get_text('remaining', language)}: **{build.remaining_budget:,} ₽**\n\n"
+    if budget and budget > 0:
+        text += f"  • {get_text('spent', language)}: **{build.total_cost:,} ₽** / {budget:,} ₽\n"
+        text += f"  • {get_text('remaining', language)}: **{build.remaining_budget:,} ₽**\n\n"
+    else:
+        text += f"  • {get_text('spent', language)}: **{build.total_cost:,} ₽**\n"
+        text += f"  • {get_text('budget_title', language)}: {get_text('no_budget_limit', language)}\n\n"
     
     # Availability
     if build.available_from:
