@@ -65,8 +65,9 @@ class BotApplication:
         
         # v5.1 AI Services
         ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
         self.context_builder = ContextBuilder(self.api_client, self.db)
-        self.ai_generation_service = AIGenerationService(self.api_client, self.db, ollama_url)
+        self.ai_generation_service = AIGenerationService(self.api_client, self.db, ollama_url, ollama_model)
         self.ai_assistant = AIAssistant(self.api_client, self.db, self.ai_generation_service)
         
         # Bot and Dispatcher

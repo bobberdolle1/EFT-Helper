@@ -17,13 +17,14 @@ class AIGenerationService:
         self, 
         api_client: TarkovAPIClient,
         db: Database,
-        ollama_url: str = "http://localhost:11434"
+        ollama_url: str = "http://localhost:11434",
+        ollama_model: str = "qwen3:8b"
     ):
         self.api = api_client
         self.db = db
         self.context_builder = ContextBuilder(api_client, db)
         self.ollama_url = ollama_url
-        self.model = "qwen3:8b"  # Using Qwen3-8B as specified in technical requirements
+        self.model = ollama_model
     
     async def generate_build(
         self,
