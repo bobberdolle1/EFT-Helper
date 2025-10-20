@@ -16,6 +16,7 @@ from api_clients import TarkovAPIClient
 from services import WeaponService, BuildService, UserService, SyncService, AdminService
 from services.random_build_service import RandomBuildService
 from services import CompatibilityChecker, TierEvaluator, BuildGenerator
+from services import ContextBuilder, AIGenerationService, AIAssistant
 from handlers import common, search, builds, loyalty, tier_list, settings
 from handlers import community_builds, dynamic_builds, admin
 
@@ -62,6 +63,12 @@ class BotApplication:
         self.tier_evaluator = TierEvaluator()
         self.build_generator = BuildGenerator(self.api_client, self.compatibility_checker, self.tier_evaluator)
         
+        # v5.1 AI Services
+        ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.context_builder = ContextBuilder(self.api_client, self.db)
+        self.ai_generation_service = AIGenerationService(self.api_client, self.db, ollama_url)
+        self.ai_assistant = AIAssistant(self.api_client, self.db, self.ai_generation_service)
+        
         # Bot and Dispatcher
         self.bot = Bot(token=self.bot_token)
         self.storage = MemoryStorage()
@@ -106,6 +113,10 @@ class BotApplication:
             data["compatibility_checker"] = self.compatibility_checker
             data["tier_evaluator"] = self.tier_evaluator
             data["build_generator"] = self.build_generator
+            # v5.1 AI services
+            data["ai_assistant"] = self.ai_assistant
+            data["ai_generation_service"] = self.ai_generation_service
+            data["context_builder"] = self.context_builder
             return await handler(event, data)
         
         @self.dp.error()
@@ -167,6 +178,14 @@ class BotApplication:
         logger.info("=" * 60)
         logger.info("  EFT Helper Bot Started")
         logger.info("  Автообновление цен: каждые 12 часов")
+        
+        # Check AI assistant availability
+        ai_available = await self.ai_generation_service.check_ollama_available()
+        if ai_available:
+            logger.info("  ✅ AI Assistant (Nikita Buyanov) - ONLINE")
+        else:
+            logger.warning("  ⚠️  AI Assistant - OFFLINE (fallback mode)")
+        
         logger.info("=" * 60)
         
         # Запускаем фоновую задачу обновления цен

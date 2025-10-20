@@ -9,6 +9,9 @@ from .tier_evaluator import TierEvaluator
 from .build_generator import BuildGenerator, BuildGeneratorConfig, GeneratedBuild
 from .export_service import ExportService
 from .admin_service import AdminService
+from .context_builder import ContextBuilder
+from .ai_generation_service import AIGenerationService
+from .ai_assistant import AIAssistant
 
 __all__ = [
     "WeaponService",
@@ -22,5 +25,8 @@ __all__ = [
     "BuildGeneratorConfig",
     "GeneratedBuild",
     "ExportService",
-    "AdminService"
+    "AdminService",
+    "ContextBuilder",
+    "AIGenerationService",
+    "AIAssistant"
 ]

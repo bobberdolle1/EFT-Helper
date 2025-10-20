@@ -1,5 +1,34 @@
 
 services:
+  # Ollama AI Service (v5.1)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eft-helper-ollama
+    restart: unless-stopped
+    
+    volumes:
+      - ollama_data:/root/.ollama
+    
+    ports:
+      - "11434:11434"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # EFT Helper Bot
   eft-helper-bot:
     build:
       context: .
@@ -11,20 +40,28 @@ services:
     env_file:
       - .env
     
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+    
     # Том для сохранения базы данных
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+    
+    # Зависимости
+    depends_on:
+      ollama:
+        condition: service_healthy
     
     # Ограничения ресурсов (опционально)
     deploy:
       resources:
         limits:
           cpus: '1.0'
-          memory: 512M
+          memory: 1G
         reservations:
           cpus: '0.25'
-          memory: 128M
+          memory: 256M
     
     # Политика перезапуска
     logging:
@@ -40,3 +77,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  ollama_data:

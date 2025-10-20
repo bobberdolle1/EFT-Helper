@@ -248,6 +248,30 @@ TEXTS = {
         "back": "◀️ Назад",
         "main_menu_btn": "🏠 Главное меню",
         "error": "❌ Произошла ошибка. Попробуйте снова.",
+        
+        # AI Assistant
+        "ai_assistant_name": "🤖 Никита Буянов",
+        "ai_thinking": "🤔 Думаю...",
+        "ai_generating_build": "⚙️ Генерирую сборку...",
+        "ai_not_available": "❌ AI-ассистент временно недоступен. Используйте меню для навигации.",
+        "ai_no_response": "❌ Не удалось получить ответ от ассистента. Попробуйте позже.",
+        "ai_error": "❌ Произошла ошибка при обработке запроса.",
+        "ai_fallback": "🤖 Никита Буянов временно недоступен. Используйте кнопки меню ниже.",
+        "suggestions": "Возможно, вам помогут эти разделы",
+        "suggestion_search_weapon": "🔍 Поиск оружия",
+        "suggestion_random_build": "🎲 Случайная сборка",
+        "suggestion_quest_builds": "📜 Квестовые сборки",
+        "suggestion_meta_builds": "⚔️ Мета-сборки",
+        "quest_build_failed": "❌ Не удалось сгенерировать сборку для квеста.",
+        "meta_build_request": "Покажи лучшую мета-сборку для {weapon}",
+        "meta_build_request_general": "Покажи лучшие мета-сборки",
+        
+        # Voice messages
+        "voice_transcribed": "🎤 Распознано: _{text}_",
+        "voice_transcription_failed": "❌ Не удалось распознать голосовое сообщение.",
+        "voice_not_supported": "❌ Голосовые сообщения пока не поддерживаются.",
+        "voice_processing_error": "❌ Ошибка при обработке голосового сообщения.",
+        "voice_processing": "🎤 Обрабатываю голосовое сообщение...",
     },
     "en": {
         # Main menu
@@ -496,6 +520,30 @@ TEXTS = {
         "back": "◀️ Back",
         "main_menu_btn": "🏠 Main Menu",
         "error": "❌ An error occurred. Please try again.",
+        
+        # AI Assistant
+        "ai_assistant_name": "🤖 Nikita Buyanov",
+        "ai_thinking": "🤔 Thinking...",
+        "ai_generating_build": "⚙️ Generating build...",
+        "ai_not_available": "❌ AI assistant is temporarily unavailable. Use the menu for navigation.",
+        "ai_no_response": "❌ Failed to get response from assistant. Please try later.",
+        "ai_error": "❌ An error occurred while processing your request.",
+        "ai_fallback": "🤖 Nikita Buyanov is temporarily unavailable. Use the menu buttons below.",
+        "suggestions": "These sections might help you",
+        "suggestion_search_weapon": "🔍 Search Weapon",
+        "suggestion_random_build": "🎲 Random Build",
+        "suggestion_quest_builds": "📜 Quest Builds",
+        "suggestion_meta_builds": "⚔️ Meta Builds",
+        "quest_build_failed": "❌ Failed to generate build for quest.",
+        "meta_build_request": "Show me the best meta build for {weapon}",
+        "meta_build_request_general": "Show me the best meta builds",
+        
+        # Voice messages
+        "voice_transcribed": "🎤 Recognized: _{text}_",
+        "voice_transcription_failed": "❌ Failed to recognize voice message.",
+        "voice_not_supported": "❌ Voice messages are not supported yet.",
+        "voice_processing_error": "❌ Error processing voice message.",
+        "voice_processing": "🎤 Processing voice message...",
     }
 }
 
