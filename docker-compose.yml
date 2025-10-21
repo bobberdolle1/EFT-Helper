@@ -54,6 +54,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ~/.cache/whisper:/root/.cache/whisper:ro  # Whisper models from host
+      - /tmp/eft_voice:/tmp/eft_voice  # Temporary voice files
     
     # Зависимости закомментированы - используется локальный Ollama
     # depends_on:
