@@ -278,7 +278,7 @@ class AIAssistant:
         
         # Check if question is about quests/tasks and add quest context
         text_lower = text.lower()
-        quest_keywords = ["квест", "задани", "задача", "оружейник", "gunsmith", "quest", "task", "mission"] if language == "ru" else ["quest", "task", "mission", "gunsmith"]
+        quest_keywords = ["квест", "задание", "задача", "оружейник", "gunsmith", "quest", "task", "mission"] if language == "ru" else ["quest", "task", "mission", "gunsmith"]
         is_quest_question = any(kw in text_lower for kw in quest_keywords)
         
         quest_context = ""
