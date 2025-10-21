@@ -291,6 +291,11 @@ class AIAssistant:
                 # Provide general quest context
                 quest_context = await context_builder.build_quest_context(language=language)
         
+        # Prepare quest context section (avoid backslash in f-string expressions)
+        quest_context_section = ""
+        if quest_context:
+            quest_context_section = f"Информация о квестах из API:\n{quest_context}\n\n"
+        
         # Create prompt for general conversation
         if language == "ru":
             prompt = f"""Ты — Никита Буянов, главный разработчик Escape from Tarkov.
@@ -305,11 +310,14 @@ class AIAssistant:
 Информация о пользователе:
 {user_context}
 
-{f'Информация о квестах из API:\n{quest_context}\n' if quest_context else ''}
-Вопрос игрока: {text}
+{quest_context_section}Вопрос игрока: {text}
 
 Твой ответ на русском:"""
         else:
+            quest_context_section_en = ""
+            if quest_context:
+                quest_context_section_en = f"Quest information from API:\n{quest_context}\n\n"
+            
             prompt = f"""You are Nikita Buyanov, lead developer of Escape from Tarkov.
 Answer player questions in a friendly and professional manner in ENGLISH.
 
@@ -322,8 +330,7 @@ IMPORTANT:
 User information:
 {user_context}
 
-{f'Quest information from API:\n{quest_context}\n' if quest_context else ''}
-Player's question: {text}
+{quest_context_section_en}Player's question: {text}
 
 Your response in English:"""
         
