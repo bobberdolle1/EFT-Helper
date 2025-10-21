@@ -17,11 +17,13 @@ class AIAssistant:
         self,
         api_client: TarkovAPIClient,
         db: Database,
-        ai_generation_service: AIGenerationService
+        ai_generation_service: AIGenerationService,
+        news_service=None
     ):
         self.api = api_client
         self.db = db
         self.ai_gen = ai_generation_service
+        self.news_service = news_service
         self.fallback_enabled = True
     
     async def handle_message(self, message: Message, user_language: str = "ru") -> str:
@@ -49,8 +51,23 @@ class AIAssistant:
         
         # Try AI generation
         try:
+            # Detect if this is a news request
+            if self._is_news_request(user_text, user_language):
+                if self.news_service:
+                    news_items = await self.news_service.get_latest_news(lang=user_language, limit=5)
+                    return self.news_service.format_news_message(news_items, user_language)
+                else:
+                    if user_language == "ru":
+                        return "🤖 Никита Буянов: Извините, сейчас не могу получить новости. Попробуйте позже."
+                    else:
+                        return "🤖 Nikita Buyanov: Sorry, I can't get news right now. Try again later."
+            
             # Detect if this is a build request
             if self._is_build_request(user_text, user_language):
+                # Send generating indicator
+                indicator_text = get_text("ai_generating", user_language)
+                await message.answer(indicator_text)
+                
                 build_data = await self.ai_gen.generate_build(
                     user_text,
                     user_id,
@@ -122,6 +139,24 @@ class AIAssistant:
         except Exception as e:
             logger.error(f"Error handling voice: {e}", exc_info=True)
             return get_text("voice_processing_error", user_language)
+    
+    def _is_news_request(self, text: str, language: str) -> bool:
+        """Check if message is a news request."""
+        text_lower = text.lower()
+        
+        news_keywords_ru = [
+            "новост", "новинк", "что нового", "последние новости",
+            "обновлен", "патч", "вайп", "что случилось", "что изменилось"
+        ]
+        
+        news_keywords_en = [
+            "news", "update", "patch", "wipe", "what's new", "latest",
+            "changelog", "what happened", "what changed"
+        ]
+        
+        keywords = news_keywords_ru if language == "ru" else news_keywords_en
+        
+        return any(keyword in text_lower for keyword in keywords)
     
     def _is_build_request(self, text: str, language: str) -> bool:
         """Check if message is a build request."""

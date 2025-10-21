@@ -14,7 +14,7 @@ class ContextBuilder:
         self.api = api_client
         self.db = db
     
-    async def build_weapon_context(self, weapon_id: Optional[str] = None, language: str = "en") -> str:
+    async def build_weapon_context(self, weapon_id: Optional[str] = None, language: str = "ru") -> str:
         """
         Build context about weapons for LLM.
         
@@ -26,7 +26,7 @@ class ContextBuilder:
             Formatted string with weapon information
         """
         if weapon_id:
-            weapon_data = await self.api.get_weapon_details(weapon_id)
+            weapon_data = await self.api.get_weapon_details(weapon_id, lang=language)
             if not weapon_data:
                 return ""
             
@@ -53,7 +53,7 @@ class ContextBuilder:
         
         return context
     
-    async def build_modules_context(self, weapon_id: str, language: str = "en") -> str:
+    async def build_modules_context(self, weapon_id: str, language: str = "ru") -> str:
         """
         Build context about available modules for a weapon.
         
@@ -64,7 +64,7 @@ class ContextBuilder:
         Returns:
             Formatted string with module information
         """
-        weapon_data = await self.api.get_weapon_details(weapon_id)
+        weapon_data = await self.api.get_weapon_details(weapon_id, lang=language)
         if not weapon_data:
             return ""
         
@@ -113,7 +113,7 @@ class ContextBuilder:
         
         return context
     
-    async def build_quest_context(self, quest_name: Optional[str] = None, language: str = "en") -> str:
+    async def build_quest_context(self, quest_name: Optional[str] = None, language: str = "ru") -> str:
         """
         Build context about quests (especially Gunsmith quests).
         
@@ -202,28 +202,45 @@ class ContextBuilder:
         return "Market information:\n  - Prices are from Flea Market (24h average)\n  - Trader prices may be lower with loyalty levels\n  - All prices in Rubles (₽)\n"
     
     def _format_weapon_details(self, weapon_data: Dict, language: str) -> str:
-        """Format weapon details for context."""
+        """Format weapon details for context with all available characteristics."""
         name = weapon_data.get("name", "Unknown")
-        short_name = weapon_data.get("shortName", "")
-        weapon_id = weapon_data.get("id", "")
-        price = weapon_data.get("avg24hPrice", 0) or 0
-        
         props = weapon_data.get("properties", {})
-        caliber = props.get("caliber", "Unknown")
-        ergo = props.get("ergonomics", 0)
-        recoil_v = props.get("recoilVertical", 0)
-        recoil_h = props.get("recoilHorizontal", 0)
-        fire_rate = props.get("fireRate", 0)
         
-        context = f"**{name}** ({short_name})\n"
-        context += f"  - ID: {weapon_id}\n"
-        context += f"  - Price: {price:,} ₽\n"
-        context += f"  - Caliber: {caliber}\n"
-        context += f"  - Base Ergonomics: {ergo}\n"
-        context += f"  - Base Recoil: Vertical {recoil_v}, Horizontal {recoil_h}\n"
-        context += f"  - Fire Rate: {fire_rate} RPM\n"
+        details = f"**{name}**\n"
+        details += f"ID: {weapon_data.get('id')}\n"
+        details += f"Price: {weapon_data.get('avg24hPrice', 0):,} ₽\n"
         
-        return context
+        if props:
+            # Core stats
+            if props.get("caliber"):
+                details += f"Caliber: {props['caliber']}\n"
+            if props.get("ergonomics") is not None:
+                details += f"Ergonomics: {props['ergonomics']}\n"
+            if props.get("recoilVertical") is not None:
+                details += f"Vertical Recoil: {props['recoilVertical']}\n"
+            if props.get("recoilHorizontal") is not None:
+                details += f"Horizontal Recoil: {props['recoilHorizontal']}\n"
+            if props.get("fireRate"):
+                details += f"Fire Rate: {props['fireRate']} RPM\n"
+            
+            # Additional characteristics
+            if props.get("defaultAmmo"):
+                ammo = props['defaultAmmo']
+                details += f"Default Ammo: {ammo.get('name', 'Unknown')}\n"
+            if props.get("effectiveDistance"):
+                details += f"Effective Distance: {props['effectiveDistance']}m\n"
+            if props.get("sightingRange"):
+                details += f"Sighting Range: {props['sightingRange']}m\n"
+            if props.get("convergence") is not None:
+                details += f"Convergence: {props['convergence']}\n"
+            if props.get("recoilAngle") is not None:
+                details += f"Recoil Angle: {props['recoilAngle']}°\n"
+            if props.get("recoilDispersion") is not None:
+                details += f"Recoil Dispersion: {props['recoilDispersion']}\n"
+            if props.get("cameraRecoil") is not None:
+                details += f"Camera Recoil: {props['cameraRecoil']}\n"
+        
+        return details
     
     def _format_quest_details(self, quest: Dict, language: str) -> str:
         """Format quest details for context."""

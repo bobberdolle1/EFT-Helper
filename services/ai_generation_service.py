@@ -74,7 +74,7 @@ class AIGenerationService:
         language: str = "ru"
     ) -> Optional[Dict]:
         """
-        Generate build specifically for a quest.
+        Generate build specifically for a quest using exact tarkov.dev requirements.
         
         Args:
             quest_name: Name of the quest
@@ -85,11 +85,44 @@ class AIGenerationService:
             Dict with build information or None if generation failed
         """
         try:
-            # Get quest details
+            # Get quest details from API with exact requirements
+            quests = await self.api.get_weapon_build_tasks(lang=language)
+            quest_data = None
+            for q in quests:
+                if quest_name.lower() in q.get("name", "").lower():
+                    quest_data = q
+                    break
+            
+            if not quest_data:
+                logger.warning(f"Quest '{quest_name}' not found in API")
+                return None
+            
+            # Extract buildWeapon objective with required items
+            objectives = quest_data.get("objectives", [])
+            build_obj = None
+            for obj in objectives:
+                if obj.get("type") == "buildWeapon":
+                    build_obj = obj
+                    break
+            
+            if not build_obj:
+                logger.warning(f"No buildWeapon objective in quest '{quest_name}'")
+                return None
+            
+            # Build context with quest requirements
             quest_context = await self.context_builder.build_quest_context(quest_name, language)
             user_context = await self.context_builder.build_user_context(user_id)
             
-            prompt = self._create_quest_build_prompt(quest_name, quest_context, user_context, language)
+            # Include exact required items in context
+            required_items = build_obj.get("containsOne", []) or build_obj.get("containsAll", [])
+            requirements_text = "\n**REQUIRED QUEST ITEMS (MUST BE INCLUDED):**\n"
+            for item in required_items:
+                item_name = item.get("name", "Unknown")
+                requirements_text += f"  - {item_name} (ID: {item.get('id')})\n"
+            
+            full_context = quest_context + "\n" + requirements_text
+            
+            prompt = self._create_quest_build_prompt(quest_name, full_context, user_context, language)
             
             response = await self._call_ollama(prompt)
             if not response:
@@ -97,6 +130,7 @@ class AIGenerationService:
             
             build_data = self._parse_build_response(response, language)
             build_data["quest_name"] = quest_name
+            build_data["required_items"] = [item.get("name") for item in required_items]
             
             return build_data
             
@@ -205,7 +239,10 @@ class AIGenerationService:
 
 ВАЖНЫЕ ПРАВИЛА:
 1. Всегда используй ТОЛЬКО данные из предоставленного контекста (ID оружия, модулей, цены)
-2. Генерируй сборки с учётом совместимости слотов (каждый модуль должен подходить к своему слоту)
+2. КРИТИЧНО: Генерируй сборки с учётом СТРОГОЙ совместимости слотов:
+   - Каждый модуль ДОЛЖЕН быть из списка allowedItems для своего слота
+   - НЕ используй модули, которых нет в списке для конкретного слота
+   - НЕ используй гранатомёты, подствольники там, где их нет в allowedItems
 3. Учитывай бюджет пользователя (если указан)
 4. Структурируй ответ иерархически: базовое оружие → каждый слот → модули → характеристики
 5. Добавляй короткое обоснование выбора модулей
@@ -215,7 +252,7 @@ class AIGenerationService:
 🤖 Никита Буянов:
 Вот ваша сборка для [ОРУЖИЕ]:
 
-1️⃣ **Базовое оружие:** [НАЗВАНИЕ] (ID: [ID])
+1️⃣ **Базовое оружие:** [НАЗВАНИЕ]
    - Цена: [ЦЕНА] ₽
    - Базовая эргономика: [ЗНАЧЕНИЕ]
    - Базовая отдача: [ЗНАЧЕНИЕ]
@@ -246,7 +283,10 @@ Your task is to help players create optimal weapon builds based on actual data f
 
 IMPORTANT RULES:
 1. ONLY use data from provided context (weapon IDs, module IDs, prices)
-2. Generate builds considering slot compatibility (each module must fit its slot)
+2. CRITICAL: Generate builds with STRICT slot compatibility:
+   - Each module MUST be from allowedItems list for its slot
+   - DO NOT use modules not listed in allowedItems for specific slot
+   - DO NOT use grenade launchers or underbarrel devices where they're not in allowedItems
 3. Consider user's budget (if specified)
 4. Structure response hierarchically: base weapon → each slot → modules → stats
 5. Add brief reasoning for module choices
@@ -256,7 +296,7 @@ RESPONSE FORMAT:
 🤖 Nikita Buyanov:
 Here's your build for [WEAPON]:
 
-1️⃣ **Base weapon:** [NAME] (ID: [ID])
+1️⃣ **Base weapon:** [NAME]
    - Price: [PRICE] ₽
    - Base ergonomics: [VALUE]
    - Base recoil: [VALUE]

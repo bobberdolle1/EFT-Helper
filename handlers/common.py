@@ -62,27 +62,21 @@ async def handle_language_selection(callback: CallbackQuery, db: Database):
     await callback.answer()
 
 
-@router.message(F.text & ~F.text.startswith("/"))
+@router.message(F.text & ~F.text.startswith("/") & ~F.text.in_([
+    get_text("main_menu", "ru"), get_text("main_menu", "en"),
+    get_text("search_weapon", "ru"), get_text("search_weapon", "en"),
+    get_text("random_build", "ru"), get_text("random_build", "en"),
+    get_text("meta_builds", "ru"), get_text("meta_builds", "en"),
+    get_text("all_quest_builds", "ru"), get_text("all_quest_builds", "en"),
+    get_text("best_weapons", "ru"), get_text("best_weapons", "en"),
+    get_text("settings", "ru"), get_text("settings", "en"),
+    get_text("loyalty_builds", "ru"), get_text("loyalty_builds", "en"),
+    get_text("dynamic_random_build", "ru"), get_text("dynamic_random_build", "en"),
+]))
 async def handle_text_message(message: Message, user_service, ai_assistant=None):
-    """Handle all text messages and route to AI assistant."""
+    """Handle all non-menu text messages and route to AI assistant."""
     # Get or create user
     user = await user_service.get_or_create_user(message.from_user.id)
-    
-    # Check if this is a menu button (skip AI for menu navigation)
-    menu_buttons = [
-        get_text("main_menu", "ru"), get_text("main_menu", "en"),
-        get_text("search_weapon", "ru"), get_text("search_weapon", "en"),
-        get_text("random_build", "ru"), get_text("random_build", "en"),
-        get_text("meta_builds", "ru"), get_text("meta_builds", "en"),
-        get_text("all_quest_builds", "ru"), get_text("all_quest_builds", "en"),
-        get_text("best_weapons", "ru"), get_text("best_weapons", "en"),
-        get_text("settings", "ru"), get_text("settings", "en"),
-        get_text("loyalty_builds", "ru"), get_text("loyalty_builds", "en"),
-    ]
-    
-    if message.text in menu_buttons:
-        # Let other handlers process menu buttons
-        return
     
     # Route to AI assistant if available
     if ai_assistant:

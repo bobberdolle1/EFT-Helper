@@ -12,21 +12,21 @@ from .admin_service import AdminService
 from .context_builder import ContextBuilder
 from .ai_generation_service import AIGenerationService
 from .ai_assistant import AIAssistant
+from .news_service import NewsService
 
 __all__ = [
-    "WeaponService",
-    "BuildService", 
     "UserService",
-    "SyncService",
+    "BuildService",
     "RandomBuildService",
+    "AdminService",
+    "WeaponService",
+    "SyncService",
     "CompatibilityChecker",
     "TierEvaluator",
     "BuildGenerator",
-    "BuildGeneratorConfig",
-    "GeneratedBuild",
-    "ExportService",
-    "AdminService",
     "ContextBuilder",
     "AIGenerationService",
-    "AIAssistant"
+    "AIAssistant",
+    "NewsService",
+    "ExportService",
 ]

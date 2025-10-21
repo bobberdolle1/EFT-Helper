@@ -63,12 +63,16 @@ class BotApplication:
         self.tier_evaluator = TierEvaluator()
         self.build_generator = BuildGenerator(self.api_client, self.compatibility_checker, self.tier_evaluator)
         
+        # News Service
+        from services import NewsService
+        self.news_service = NewsService()
+        
         # v5.1 AI Services
         ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
         self.context_builder = ContextBuilder(self.api_client, self.db)
         self.ai_generation_service = AIGenerationService(self.api_client, self.db, ollama_url, ollama_model)
-        self.ai_assistant = AIAssistant(self.api_client, self.db, self.ai_generation_service)
+        self.ai_assistant = AIAssistant(self.api_client, self.db, self.ai_generation_service, self.news_service)
         
         # Bot and Dispatcher
         self.bot = Bot(token=self.bot_token)
@@ -118,6 +122,8 @@ class BotApplication:
             data["ai_assistant"] = self.ai_assistant
             data["ai_generation_service"] = self.ai_generation_service
             data["context_builder"] = self.context_builder
+            # News service
+            data["news_service"] = self.news_service
             return await handler(event, data)
         
         @self.dp.error()

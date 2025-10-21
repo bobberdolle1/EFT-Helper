@@ -46,6 +46,10 @@ services:
     # environment:
     #   - OLLAMA_URL=http://host.docker.internal:11434
     
+    # Маппинг хоста для доступа к локальному Ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
     # Том для сохранения базы данных
     volumes:
       - ./data:/app/data

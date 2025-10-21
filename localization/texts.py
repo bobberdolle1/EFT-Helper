@@ -247,292 +247,6 @@ TEXTS = {
         # Common
         "back": "◀️ Назад",
         "main_menu_btn": "🏠 Главное меню",
-        "error": "❌ Произошла ошибка. Попробуйте снова.",
-        
-        # AI Assistant
-        "ai_assistant_name": "🤖 Никита Буянов",
-        "ai_thinking": "🤔 Думаю...",
-        "ai_generating_build": "⚙️ Генерирую сборку...",
-        "ai_not_available": "❌ AI-ассистент временно недоступен. Используйте меню для навигации.",
-        "ai_no_response": "❌ Не удалось получить ответ от ассистента. Попробуйте позже.",
-        "ai_error": "❌ Произошла ошибка при обработке запроса.",
-        "ai_fallback": "🤖 Никита Буянов временно недоступен. Используйте кнопки меню ниже.",
-        "suggestions": "Возможно, вам помогут эти разделы",
-        "suggestion_search_weapon": "🔍 Поиск оружия",
-        "suggestion_random_build": "🎲 Случайная сборка",
-        "suggestion_quest_builds": "📜 Квестовые сборки",
-        "suggestion_meta_builds": "⚔️ Мета-сборки",
-        "quest_build_failed": "❌ Не удалось сгенерировать сборку для квеста.",
-        "meta_build_request": "Покажи лучшую мета-сборку для {weapon}",
-        "meta_build_request_general": "Покажи лучшие мета-сборки",
-        
-        # Voice messages
-        "voice_transcribed": "🎤 Распознано: _{text}_",
-        "voice_transcription_failed": "❌ Не удалось распознать голосовое сообщение.",
-        "voice_not_supported": "❌ Голосовые сообщения пока не поддерживаются.",
-        "voice_processing_error": "❌ Ошибка при обработке голосового сообщения.",
-        "voice_processing": "🎤 Обрабатываю голосовое сообщение...",
-    },
-    "en": {
-        # Main menu
-        "main_menu": "🏠 Main Menu",
-        "search_weapon": "🔍 Search Weapon",
-        "all_quest_builds": "📜 All Quest Builds",
-        "random_build": "🎲 Random Build",
-        "meta_builds": "⚔️ Meta Builds",
-        "loyalty_builds": "🤝 Loyalty Builds",
-        "best_weapons": "⭐ Best Weapons",
-        "settings": "⚙️ Settings",
-        
-        # Welcome message
-        "welcome": "👋 Welcome to EFT Helper!\n\nThis bot will help you find optimal weapon builds for Escape from Tarkov.\n\nChoose an action from the menu below:",
-        "select_language": "🌍 Выберите язык / Select your language:",
-        "language_selected": "✅ Language selected: English\n\nWelcome to EFT Helper! This bot will help you find optimal weapon builds for Escape from Tarkov.",
-        
-        # Search
-        "enter_weapon_name": "🔍 Enter weapon name to search:\n\nFor example: AK-74N, MP-153, M4A1",
-        "weapon_not_found": "❌ Weapon not found. Try another query.",
-        "select_weapon": "Select weapon:",
-        "no_weapons_found": "❌ No weapons found in database.",
-        
-        # Build filters
-        "select_build_type": "Select build type for {weapon}:",
-        "random_build_btn": "🎲 Random",
-        "meta_build_btn": "⚔️ Meta",
-        "quest_build_btn": "📜 Quest",
-        "constructor_btn": "🛠️ Constructor",
-        "budget_build_btn": "💰 By Budget",
-        "loyalty_build_btn": "🤝 By Loyalty",
-        
-        # Build display
-        "build_card_title": "🔫 {weapon}\n",
-        "build_category": "📂 Category: {category}",
-        "build_quest": "📜 Quest: {quest}",
-        "build_modules": "🔧 Modules:",
-        "build_total_cost": "💰 Total Cost: {cost} ₽",
-        "build_loyalty": "🤝 Minimum Loyalty: {level}",
-        "build_planner": "🔗 [Open in Planner]({link})",
-        "no_builds_found": "❌ No builds found for this weapon.",
-        
-        # Quest builds
-        "quest_builds_list": "📜 Quest Builds\n\nSelect a quest:",
-        "no_quest_builds": "❌ No quest builds found.",
-        "quest_description": "📝 {description}",
-        "loading_quests": "⏳ Loading quests...",
-        "quest_builds_title": "📜 Quest Builds",
-        "all_quest_builds_title": "📜 All Quest Builds",
-        "select_quest": "Select a quest to view information:",
-        "quest_trader": "Trader",
-        "quest_level": "Required Level",
-        "quest_experience": "Experience",
-        "quest_map": "Map",
-        "quest_required_tasks": "Required Tasks",
-        "quest_objectives": "Objectives",
-        "quest_optional": "opt.",
-        "quest_and_more": "and",
-        "quest_more_objectives": "more objectives",
-        "quest_recommended_build": "Recommended Build",
-        
-        # Random build
-        "random_build_title": "🎲 Random Build",
-        "generating_random": "🎲 Generating random build...",
-        "truly_random_build": "🎰 True Random Build",
-        "generating_truly_random": "🎰 Generating truly random build...",
-        "truly_random_build_title": "🎰 True Random Build",
-        
-        # Meta builds
-        "meta_builds_title": "⚔️ Meta Builds 2025",
-        "meta_builds_desc": "Current top builds by category:",
-        "no_meta_builds": "❌ No meta builds found.",
-        
-        # Loyalty builds
-        "select_trader": "🤝 Select a trader:",
-        "select_loyalty_level": "Select loyalty level for {trader}:",
-        "loyalty_level": "Level {level}",
-        "no_loyalty_builds": "❌ No available builds for {trader} (level {level}).",
-        "setup_loyalty_levels": "🤝 Loyalty Levels Setup\n\nSet your current trader loyalty levels. This will allow the bot to show only builds available to you.",
-        "current_loyalty_levels": "Current loyalty levels:",
-        "trader_level_set": "✅ Loyalty level for {trader} set to: {level}",
-        "loyalty_levels_saved": "✅ Loyalty levels saved!",
-        "show_available_builds": "📋 Show Available Builds",
-        "reset_loyalty_levels": "🔄 Reset Levels",
-        "select_weapon_category": "Select weapon category:",
-        "any_category": "🔫 Any Category",
-        "enter_max_budget": "💰 Enter maximum budget (in rubles):\n\nFor example: 500000\n\nSend /skip to skip",
-        "skip_budget": "⏭️ Skip Budget",
-        "invalid_budget_format": "❌ Invalid format. Enter a number or /skip",
-        "budget_set_to": "✅ Budget set to: {budget} ₽",
-        "no_budget_limit": "♾️ No budget limit",
-        "loyalty_builds_filters": "📋 Filters:\n  • Category: {category}\n  • Budget: {budget}",
-        "found_builds": "Found {count} builds",
-        "regenerate": "🔄 Regenerate",
-        "select_flea_market": "Use flea market?",
-        "traders_only": "🤝 Traders Only",
-        "with_flea_market": "🏪 With Flea Market",
-        
-        # Best weapons
-        "best_weapons_title": "⭐ Best Weapons by Category",
-        "tier_s": "🏆 S-Tier (Best)",
-        "tier_a": "🥇 A-Tier (Excellent)",
-        "tier_b": "🥈 B-Tier (Good)",
-        "tier_c": "🥉 C-Tier (Average)",
-        "tier_d": "📊 D-Tier (Weak)",
-        "no_tier_weapons": "❌ No weapons found for this tier.",
-        
-        # Settings
-        "settings_title": "⚙️ Settings",
-        "current_language": "Current language: {language_name}",
-        "change_language": "Change language:",
-        "language_changed": "✅ Language changed to: {language_name}",
-        "lang_ru": "🇷🇺 Русский",
-        "lang_en": "🇬🇧 English",
-        
-        # Build Constructor (v3.0)
-        "build_constructor": "🛠 Build Constructor",
-        "dynamic_random_build": "🎲 Dynamic Build",
-        "community_builds": "👥 Community Builds",
-        "my_builds": "💾 My Builds",
-        "constructor_title": "🛠 Build Constructor",
-        "constructor_desc": "Create your perfect build with budget and loyalty constraints",
-        "select_weapon_for_build": "Select weapon for build:",
-        "enter_budget": "💰 Enter budget in rubles (e.g., 150000):",
-        "budget_set": "✅ Budget set: {budget} ₽",
-        "invalid_budget": "❌ Invalid budget format. Enter a number.",
-        "use_flea_market": "🛒 Use Flea Market only?",
-        "generating_build": "⚙️ Generating build...",
-        "build_generated": "✅ Build generated!",
-        "save_build": "💾 Save",
-        "regenerate_build": "🔄 Regenerate",
-        "share_build": "📤 Share",
-        "build_saved": "✅ Build saved!",
-        "enter_build_name": "Enter build name:",
-        "build_stats": "📊 Stats:",
-        "build_ergonomics": "  • Ergonomics: {value}",
-        "build_recoil_v": "  • Vertical Recoil: {value}",
-        "build_recoil_h": "  • Horizontal Recoil: {value}",
-        "build_tier": "🏆 Quality Tier: {tier}",
-        "build_spent": "💸 Spent: {cost} ₽ of {budget} ₽",
-        "build_remaining": "💰 Remaining: {remaining} ₽",
-        "build_available_from": "🛒 Available: {sources}",
-        "build_modules_list": "🔧 Modules:",
-        
-        # Community Builds
-        "community_builds_title": "👥 Community Builds",
-        "community_builds_desc": "View and copy builds from other players",
-        "no_community_builds": "❌ No public builds yet",
-        "build_by_user": "Author: User #{user_id}",
-        "build_likes": "👍 {count}",
-        "like_build": "👍 Like",
-        "copy_build": "📋 Copy",
-        "build_copied": "✅ Build copied to your saves!",
-        "build_liked": "✅ You liked this build!",
-        "view_details": "📝 Details",
-        "make_public": "🌐 Publish",
-        "make_private": "🔒 Hide",
-        "build_published": "✅ Build published!",
-        "build_unpublished": "✅ Build hidden",
-        "delete_build": "🗑 Delete",
-        "build_deleted": "✅ Build deleted",
-        "confirm_delete": "Are you sure you want to delete this build?",
-        "my_builds_title": "💾 My Builds",
-        "no_saved_builds": "❌ You don't have any saved builds yet",
-        
-        # Dynamic Build Generation
-        "dynamic_build_title": "🎲 Dynamic Build",
-        "dynamic_build_desc": "Generate random build with your parameters",
-        "setup_generation": "⚙️ Setup Generation",
-        "any_weapon": "Any Weapon",
-        "budget_question": "What's your budget?",
-        "flea_only_question": "Use Flea Market only?",
-        "yes": "✅ Yes",
-        "no": "❌ No",
-        "prioritize_question": "What to prioritize?",
-        "prioritize_ergo": "📈 Ergonomics",
-        "prioritize_recoil": "📉 Recoil",
-        "balanced": "⚖️ Balanced",
-        
-        # Traders
-        "prapor": "Prapor",
-        "therapist": "Therapist",
-        "fence": "Fence",
-        "skier": "Skier",
-        "peacekeeper": "Peacekeeper",
-        "mechanic": "Mechanic",
-        "ragman": "Ragman",
-        "jaeger": "Jaeger",
-        "lightkeeper": "Lightkeeper",
-        # Trader names mapping (for API responses)
-        "trader_prapor": "Prapor",
-        "trader_therapist": "Therapist",
-        "trader_fence": "Fence",
-        "trader_skier": "Skier",
-        "trader_peacekeeper": "Peacekeeper",
-        "trader_mechanic": "Mechanic",
-        "trader_ragman": "Ragman",
-        "trader_jaeger": "Jaeger",
-        "trader_lightkeeper": "Lightkeeper",
-        
-        # Categories
-        "assault_rifle": "Assault Rifle",
-        "smg": "Submachine Gun",
-        "sniper": "Sniper Rifle",
-        "dmr": "Designated Marksman Rifle",
-        "shotgun": "Shotgun",
-        "pistol": "Pistol",
-        "lmg": "Light Machine Gun",
-        
-        # Build categories
-        "category_random": "Random",
-        "category_meta": "Meta",
-        "category_quest": "Quest",
-        "category_loyalty": "By Loyalty",
-        
-        # Weapon categories
-        "select_category": "Select weapon category:",
-        "category_pistols": "🔫 Pistols",
-        "category_smg": "🔫 Submachine Guns",
-        "category_assault_rifles": "🔫 Assault Rifles",
-        "category_dmr": "🔫 Marksman Rifles",
-        "category_sniper_rifles": "🔫 Sniper Rifles",
-        "category_shotguns": "🔫 Shotguns",
-        "category_lmg": "🔫 Machine Guns",
-        "search_by_name": "🔍 Search by Name",
-        
-        # Weapon stats
-        "caliber": "Caliber",
-        "fire_rate": "Fire Rate",
-        "weapon_price": "Weapon Price",
-        "weapon_characteristics": "WEAPON CHARACTERISTICS",
-        "final_stats": "FINAL STATS",
-        "ergonomics_stat": "Ergonomics",
-        "vertical_recoil": "Vertical Recoil",
-        "horizontal_recoil": "Horizontal Recoil",
-        "budget_title": "BUDGET",
-        "spent": "Spent",
-        "remaining": "Remaining",
-        
-        # Media types
-        "media_photo": "photo",
-        "media_video": "video",
-        "media_document": "document",
-        
-        # Common
-        "back": "◀️ Back",
-        "main_menu_btn": "🏠 Main Menu",
-        "error": "❌ An error occurred. Please try again.",
-        
-        # AI Assistant
-        "ai_assistant_name": "🤖 Nikita Buyanov",
-        "ai_thinking": "🤔 Thinking...",
-        "ai_generating_build": "⚙️ Generating build...",
-        "ai_not_available": "❌ AI assistant is temporarily unavailable. Use the menu for navigation.",
-        "ai_no_response": "❌ Failed to get response from assistant. Please try later.",
-        "ai_error": "❌ An error occurred while processing your request.",
-        "ai_fallback": "🤖 Nikita Buyanov is temporarily unavailable. Use the menu buttons below.",
-        "suggestions": "These sections might help you",
-        "suggestion_search_weapon": "🔍 Search Weapon",
-        "suggestion_random_build": "🎲 Random Build",
-        "suggestion_quest_builds": "📜 Quest Builds",
         "suggestion_meta_builds": "⚔️ Meta Builds",
         "quest_build_failed": "❌ Failed to generate build for quest.",
         "meta_build_request": "Show me the best meta build for {weapon}",
@@ -544,6 +258,54 @@ TEXTS = {
         "voice_not_supported": "❌ Voice messages are not supported yet.",
         "voice_processing_error": "❌ Error processing voice message.",
         "voice_processing": "🎤 Processing voice message...",
+        
+        # AI Assistant (v5.1)
+        "ai_not_available": "❌ AI-ассистент временно недоступен. Используйте меню для навигации.",
+        "ai_error": "❌ Ошибка AI-ассистента. Попробуйте ещё раз или используйте меню.",
+        "ai_generating": "🤖 Никита Буянов: Генерирую сборку, подождите...",
+        
+        # News
+        "news_loading": "⏳ Загружаю новости Escape from Tarkov...",
+        "news_error": "❌ Не удалось загрузить новости. Попробуйте позже.",
+    },
+    "en": {
+        # Main menu
+        "main_menu": "🏠 Main Menu",
+        "search_weapon": "🔍 Search Weapon",
+        "all_quest_builds": "📜 All Quest Builds",
+        "random_build": "🎲 Random Build",
+        "meta_builds": "⚔️ Meta Builds",
+        "loyalty_builds": "🤝 Loyalty Builds",
+        "best_weapons": "⭐ Best Weapons",
+        "settings": "⚙️ Settings",
+        "dynamic_random_build": "🎲 Dynamic Build",
+        
+        # Welcome
+        "welcome": "👋 Welcome to EFT Helper!\n\nThis bot will help you find optimal weapon builds for Escape from Tarkov.\n\nSelect an action from the menu below:",
+        "select_language": "🌍 Выберите язык / Select your language:",
+        "language_selected": "✅ Language selected: English\n\nWelcome to EFT Helper! This bot will help you find optimal weapon builds for Escape from Tarkov.",
+        
+        # Common
+        "back": "◀️ Back",
+        "main_menu_btn": "🏠 Main Menu",
+        "error": "❌ Error occurred",
+        "loading": "⏳ Loading...",
+        
+        # Voice messages
+        "voice_transcribed": "🎤 Recognized: _{text}_",
+        "voice_transcription_failed": "❌ Failed to recognize voice message.",
+        "voice_not_supported": "❌ Voice messages are not supported yet.",
+        "voice_processing_error": "❌ Error processing voice message.",
+        "voice_processing": "🎤 Processing voice message...",
+        
+        # AI Assistant (v5.1)
+        "ai_not_available": "❌ AI assistant is temporarily unavailable. Use menu for navigation.",
+        "ai_error": "❌ AI assistant error. Please try again or use the menu.",
+        "ai_generating": "🤖 Nikita Buyanov: Generating build, please wait...",
+        
+        # News
+        "news_loading": "⏳ Loading Escape from Tarkov news...",
+        "news_error": "❌ Failed to load news. Please try again later.",
     }
 }
 

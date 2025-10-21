@@ -43,5 +43,5 @@ EXPOSE 8080
 # Создаем директорию для логов
 RUN mkdir -p /app/logs
 
-# Запускаем бота
-CMD ["python", "start.py"]
+# Запускаем бота через main.py (с поддержкой AI)
+CMD ["python", "main.py"]
