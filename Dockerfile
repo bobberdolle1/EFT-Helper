@@ -27,6 +27,9 @@ COPY pyproject.toml poetry.lock* ./
 # Устанавливаем зависимости через Poetry
 RUN poetry install --no-interaction --no-ansi --only main
 
+# Устанавливаем faster-whisper для голосовых сообщений
+RUN pip install --no-cache-dir faster-whisper
+
 # Копируем весь проект
 COPY . .
 

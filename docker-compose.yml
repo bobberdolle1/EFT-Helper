@@ -42,9 +42,9 @@ services:
     env_file:
       - .env
     
-    # Дополнительные переменные (при необходимости переопределения)
-    # environment:
-    #   - OLLAMA_URL=http://host.docker.internal:11434
+    # Дополнительные переменные для доступа к Ollama на хосте
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
     
     # Маппинг хоста для доступа к локальному Ollama
     extra_hosts:
