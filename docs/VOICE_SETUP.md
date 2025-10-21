@@ -1,96 +1,80 @@
-# Настройка голосовых сообщений (Whisper)
+# Настройка голосовых сообщений (Whisper через Ollama)
 
-## Установка Whisper на хост-машине
+## Использование Whisper через Ollama
 
-Для работы с голосовыми сообщениями используется **OpenAI Whisper**, установленный **локально на хосте** (не в Docker-контейнере).
+Для работы с голосовыми сообщениями используется **Whisper через Ollama** - унифицированное решение для AI и голосовой транскрибации.
 
-### Преимущества такого подхода:
-- ✅ Модели скачиваются один раз на хост
-- ✅ Docker-образ остаётся лёгким (~500 MB вместо ~3-4 GB)
-- ✅ Быстрая сборка контейнера
-- ✅ Модели переиспользуются между контейнерами
-
----
-
-## Шаг 1: Установка зависимостей на Windows
-
-### 1.1 Установить FFmpeg
-
-Whisper требует FFmpeg для обработки аудио.
-
-**Через Chocolatey (рекомендуется):**
-```powershell
-choco install ffmpeg
-```
-
-**Или вручную:**
-1. Скачать FFmpeg: https://ffmpeg.org/download.html
-2. Распаковать в `C:\ffmpeg`
-3. Добавить `C:\ffmpeg\bin` в PATH
-
-### 1.2 Установить Whisper
-
-```powershell
-pip install openai-whisper
-```
-
-### 1.3 Проверить установку
-
-```powershell
-python -c "import whisper; print('Whisper installed successfully')"
-```
+### Преимущества:
+- ✅ Один сервис для Qwen3-8B и Whisper (Ollama)
+- ✅ Не требуется Python зависимостей
+- ✅ Docker-образ остаётся лёгким (~500 MB)
+- ✅ Простая установка и обновление моделей
+- ✅ Работает на любой версии Python
 
 ---
 
-## Шаг 2: Скачивание моделей
+## Шаг 1: Установка Whisper в Ollama
 
-Whisper использует следующие модели (по возрастанию размера и точности):
+### 1.1 Скачать модель Whisper
 
-| Модель    | Размер | Скорость | Точность |
+```powershell
+# Рекомендуется - быстрая и легкая
+ollama pull dimavz/whisper-tiny
+
+# Или другие размеры для лучшего качества:
+ollama pull dimavz/whisper-base
+ollama pull dimavz/whisper-small
+```
+
+### 1.2 Проверить установку
+
+```powershell
+ollama list
+```
+
+Вы должны увидеть `dimavz/whisper-tiny` в списке моделей.
+
+### Размеры моделей:
+
+| Модель    | Размер | Скорость | Качество |
 |-----------|--------|----------|----------|
-| `tiny`    | 39 MB  | Самая быстрая | Низкая |
-| `base`    | 74 MB  | Быстрая | Средняя |
-| `small`   | 244 MB | Средняя | Хорошая |
-| `medium`  | 769 MB | Медленная | Отличная |
-| `large`   | 1.5 GB | Очень медленная | Наилучшая |
+| `tiny`    | ~75 MB | Очень быстро | Базовое |
+| `base`    | ~145 MB | Быстро | Хорошее |
+| `small`   | ~460 MB | Средне | Отличное |
+| `medium`  | ~1.5 GB | Медленно | Превосходное |
+| `large`   | ~2.9 GB | Очень медленно | Наилучшее |
 
-**Рекомендация:** используйте модель `base` или `small` для баланса скорости и качества.
-
-### Скачать модель заранее:
-
-```powershell
-python -c "import whisper; whisper.load_model('base')"
-```
-
-Модель скачается в `~/.cache/whisper/` (на Windows: `C:\Users\<Username>\.cache\whisper\`)
+**Рекомендация:** `tiny` или `base` для большинства случаев.
 
 ---
 
-## Шаг 3: Настройка Docker
+## Шаг 2: Настройка Docker
 
-Docker-контейнер уже настроен на использование Whisper с хоста через volume:
+Docker-контейнер настроен на использование локального Ollama через `host.docker.internal`:
 
 ```yaml
 # docker-compose.yml
-volumes:
-  - ~/.cache/whisper:/root/.cache/whisper:ro  # Кэш моделей с хоста
-  - /tmp/eft_voice:/tmp/eft_voice  # Временные голосовые файлы
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+
+environment:
+  - OLLAMA_URL=http://host.docker.internal:11434
 ```
 
-**Важно:** На Windows путь `~/.cache/whisper` автоматически преобразуется в `C:\Users\<Username>\.cache\whisper`
+Никаких дополнительных volumes не требуется!
 
 ---
 
-## Шаг 4: Выбор модели в боте
+## Шаг 3: Выбор модели в боте
 
 Модель настраивается в переменной окружения:
 
 ```bash
 # .env
-WHISPER_MODEL=base  # tiny, base, small, medium, large
+WHISPER_MODEL=tiny  # tiny, base, small, medium, large
 ```
 
-По умолчанию используется `base`.
+По умолчанию используется `tiny`.
 
 ---
 
@@ -120,28 +104,27 @@ Transcription successful: ...
 
 ## Устранение проблем
 
-### Ошибка: "Whisper not installed"
+### Ошибка: "Ollama API error"
 
-**Решение:** Убедитесь, что Whisper установлен **на хост-машине**:
+**Решение:** Убедитесь, что Ollama запущен:
 ```powershell
-pip install openai-whisper
+ollama serve
 ```
 
-### Ошибка: "FFmpeg not found"
+### Модель не найдена
 
-**Решение:** Установите FFmpeg и добавьте в PATH:
+**Решение:** Скачайте модель:
 ```powershell
-choco install ffmpeg
+ollama pull dimavz/whisper-tiny
 ```
 
-### Модели не загружаются
+### Проверка доступности
 
-**Решение:** Проверьте, что volume правильно примонтирован:
-```bash
-docker-compose exec eft-helper-bot ls -la /root/.cache/whisper
+```powershell
+curl http://localhost:11434/api/tags
 ```
 
-Должны быть видны файлы `.pt` моделей.
+Вы должны увидеть список моделей, включая `dimavz/whisper-tiny`.
 
 ### Медленная транскрипция
 
@@ -155,14 +138,14 @@ docker-compose exec eft-helper-bot ls -la /root/.cache/whisper
 
 Чтобы изменить модель:
 
-1. Скачать новую модель на хосте:
+1. Скачать новую модель:
 ```powershell
-python -c "import whisper; whisper.load_model('small')"
+ollama pull dimavz/whisper-base
 ```
 
 2. Обновить `.env`:
 ```bash
-WHISPER_MODEL=small
+WHISPER_MODEL=base
 ```
 
 3. Перезапустить бот:
@@ -183,5 +166,6 @@ docker-compose restart eft-helper-bot
 
 ## Дополнительная информация
 
-- Документация Whisper: https://github.com/openai/whisper
-- FFmpeg: https://ffmpeg.org/
+- Ollama Whisper: https://ollama.com/dimavz/whisper-tiny
+- Документация Ollama: https://ollama.com/
+- Оригинальный Whisper: https://github.com/openai/whisper
