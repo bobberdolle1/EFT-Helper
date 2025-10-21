@@ -276,6 +276,21 @@ class AIAssistant:
         
         user_context = await context_builder.build_user_context(user_id)
         
+        # Check if question is about quests/tasks and add quest context
+        text_lower = text.lower()
+        quest_keywords = ["квест", "задани", "задача", "оружейник", "gunsmith", "quest", "task", "mission"] if language == "ru" else ["quest", "task", "mission", "gunsmith"]
+        is_quest_question = any(kw in text_lower for kw in quest_keywords)
+        
+        quest_context = ""
+        if is_quest_question:
+            # Try to extract quest name
+            quest_name = self._extract_quest_name(text, language)
+            if quest_name:
+                quest_context = await context_builder.build_quest_info_context(quest_name, language)
+            else:
+                # Provide general quest context
+                quest_context = await context_builder.build_quest_context(language=language)
+        
         # Create prompt for general conversation
         if language == "ru":
             prompt = f"""Ты — Никита Буянов, главный разработчик Escape from Tarkov.
@@ -284,11 +299,13 @@ class AIAssistant:
 ВАЖНО: 
 - Отвечай ТОЛЬКО на русском языке
 - Не показывай ID предметов
-- Используй актуальную информацию об игре
+- Используй актуальную информацию об игре из контекста
+- Вся информация о квестах берется из API tarkov.dev
 
 Информация о пользователе:
 {user_context}
 
+{f'Информация о квестах из API:\n{quest_context}\n' if quest_context else ''}
 Вопрос игрока: {text}
 
 Твой ответ на русском:"""
@@ -299,11 +316,13 @@ Answer player questions in a friendly and professional manner in ENGLISH.
 IMPORTANT:
 - Respond ONLY in English
 - Do not show item IDs
-- Use current game information
+- Use current game information from context
+- All quest information comes from tarkov.dev API
 
 User information:
 {user_context}
 
+{f'Quest information from API:\n{quest_context}\n' if quest_context else ''}
 Player's question: {text}
 
 Your response in English:"""
