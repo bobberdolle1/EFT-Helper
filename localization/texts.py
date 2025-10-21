@@ -249,17 +249,17 @@ TEXTS = {
         # Common
         "back": "◀️ Назад",
         "main_menu_btn": "🏠 Главное меню",
-        "suggestion_meta_builds": "⚔️ Meta Builds",
-        "quest_build_failed": "❌ Failed to generate build for quest.",
-        "meta_build_request": "Show me the best meta build for {weapon}",
-        "meta_build_request_general": "Show me the best meta builds",
+        "suggestion_meta_builds": "⚔️ Мета-сборки",
+        "quest_build_failed": "❌ Не удалось сгенерировать сборку для квеста.",
+        "meta_build_request": "Покажи лучшую мета-сборку для {weapon}",
+        "meta_build_request_general": "Покажи лучшие мета-сборки",
         
         # Voice messages
-        "voice_transcribed": "🎤 Recognized: _{text}_",
-        "voice_transcription_failed": "❌ Failed to recognize voice message.",
-        "voice_not_supported": "❌ Voice messages are not supported yet.",
-        "voice_processing_error": "❌ Error processing voice message.",
-        "voice_processing": "🎤 Processing voice message...",
+        "voice_transcribed": "🎤 Распознано: _{text}_",
+        "voice_transcription_failed": "❌ Не удалось распознать голосовое сообщение.",
+        "voice_not_supported": "❌ Голосовые сообщения пока не поддерживаются.",
+        "voice_processing_error": "❌ Ошибка при обработке голосового сообщения.",
+        "voice_processing": "🎤 Обрабатываю голосовое сообщение...",
         
         # AI Assistant (v5.1)
         "ai_not_available": "❌ AI-ассистент временно недоступен. Используйте меню для навигации.",

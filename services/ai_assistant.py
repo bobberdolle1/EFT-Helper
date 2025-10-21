@@ -124,11 +124,17 @@ class AIAssistant:
             
             # Create a mock message object with transcribed text
             class MockMessage:
-                def __init__(self, text, from_user):
+                def __init__(self, text, from_user, bot, chat):
                     self.text = text
                     self.from_user = from_user
+                    self.bot = bot
+                    self.chat = chat
+                
+                async def answer(self, text, **kwargs):
+                    """Mock answer method - does nothing for voice messages."""
+                    pass
             
-            mock_message = MockMessage(transcribed_text, message.from_user)
+            mock_message = MockMessage(transcribed_text, message.from_user, message.bot, message.chat)
             
             # Handle as text message
             response = await self.handle_message(mock_message, user_language)

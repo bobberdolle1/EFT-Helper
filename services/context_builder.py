@@ -96,15 +96,33 @@ class ContextBuilder:
                 ergo = item_props.get("ergonomics", 0)
                 recoil_mod = item_props.get("recoilModifier", 0)
                 
-                # Get trader info
+                # Get trader info with localization
                 buy_for = item.get("buyFor", [])
-                trader_info = "Flea"
+                
+                # Trader names localization
+                trader_names_ru = {
+                    "Prapor": "Прапор",
+                    "Therapist": "Терапевт",
+                    "Fence": "Скупщик",
+                    "Skier": "Лыжник",
+                    "Peacekeeper": "Миротворец",
+                    "Mechanic": "Механик",
+                    "Ragman": "Барахольщик",
+                    "Jaeger": "Егерь",
+                    "Lightkeeper": "Смотритель",
+                    "Flea Market": "Барахолка"
+                }
+                
+                trader_info = "Барахолка" if language == "ru" else "Flea"
                 for offer in buy_for:
                     vendor = offer.get("vendor", {})
-                    if vendor.get("name") != "Flea Market":
+                    vendor_name = vendor.get("name", "")
+                    if vendor_name != "Flea Market":
                         requirements = offer.get("requirements", [])
                         level = next((r.get("value") for r in requirements if r.get("type") == "loyaltyLevel"), 1)
-                        trader_info = f"{vendor.get('name', 'Unknown')} LL{level}"
+                        # Localize trader name
+                        localized_name = trader_names_ru.get(vendor_name, vendor_name) if language == "ru" else vendor_name
+                        trader_info = f"{localized_name} LL{level}"
                         break
                 
                 stats = []
