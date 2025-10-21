@@ -190,6 +190,7 @@ TEXTS = {
         "mechanic": "Механик",
         "ragman": "Барахольщик",
         "jaeger": "Егерь",
+        "ref": "Реф",
         "lightkeeper": "Смотритель",
         # Trader names mapping (for API responses)
         "trader_prapor": "Прапор",
@@ -200,6 +201,7 @@ TEXTS = {
         "trader_mechanic": "Механик",
         "trader_ragman": "Барахольщик",
         "trader_jaeger": "Егерь",
+        "trader_ref": "Реф",
         "trader_lightkeeper": "Смотритель",
         
         # Categories
