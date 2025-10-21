@@ -513,6 +513,42 @@ async def select_jaeger_loyalty(callback: CallbackQuery, user_service):
 
 
 @router.callback_query(F.data.startswith("loyalty:jaeger:"))
+async def select_ref_loyalty(callback: CallbackQuery, user_service):
+    """Select Ref loyalty level (can be 0 = not available)."""
+    user = await user_service.get_or_create_user(callback.from_user.id)
+    parts = callback.data.split(":")
+    weapon_id = int(parts[2])
+    prapor_ll = int(parts[3])
+    therapist_ll = int(parts[4])
+    fence_ll = int(parts[5])
+    skier_ll = int(parts[6])
+    mechanic_ll = int(parts[7])
+    ragman_ll = int(parts[8])
+    jaeger_ll = int(parts[9])
+    
+    trader_name = "Реф" if user.language == "ru" else "Ref"
+    text = "🤝 " + (
+        f"Выберите уровень лояльности для {trader_name}:\n(LL0 = нет доступа)"
+        if user.language == "ru" else
+        f"Select loyalty level for {trader_name}:\n(LL0 = not available)"
+    )
+    
+    buttons = []
+    for level in [0, 1, 2, 3, 4]:
+        label = ("Нет доступа" if user.language == "ru" else "Not available") if level == 0 else f"LL{level}"
+        buttons.append([
+            InlineKeyboardButton(
+                text=label,
+                callback_data=f"loyalty:ref:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{level}"
+            )
+        ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("loyalty:ref:"))
 async def select_budget_for_loyalty_build(callback: CallbackQuery, user_service):
     """Ask for budget after all traders selected."""
     user = await user_service.get_or_create_user(callback.from_user.id)
@@ -525,6 +561,7 @@ async def select_budget_for_loyalty_build(callback: CallbackQuery, user_service)
     mechanic_ll = int(parts[7])
     ragman_ll = int(parts[8])
     jaeger_ll = int(parts[9])
+    ref_ll = int(parts[10])
     
     text = "💰 " + (
         "Выберите бюджет для сборки:"
@@ -546,7 +583,7 @@ async def select_budget_for_loyalty_build(callback: CallbackQuery, user_service)
         buttons.append([
             InlineKeyboardButton(
                 text=label,
-                callback_data=f"loyalty_budget:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{budget_value}"
+                callback_data=f"loyalty_budget:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{ref_ll}:{budget_value}"
             )
         ])
     
@@ -554,7 +591,7 @@ async def select_budget_for_loyalty_build(callback: CallbackQuery, user_service)
     buttons.append([
         InlineKeyboardButton(
             text="⏭️ " + ("Пропустить" if user.language == "ru" else "Skip"),
-            callback_data=f"loyalty_budget:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:0"
+            callback_data=f"loyalty_budget:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{ref_ll}:0"
         )
     ])
     
@@ -576,7 +613,8 @@ async def select_flea_market_for_loyalty(callback: CallbackQuery, user_service):
     mechanic_ll = int(parts[6])
     ragman_ll = int(parts[7])
     jaeger_ll = int(parts[8])
-    budget = int(parts[9])
+    ref_ll = int(parts[9])
+    budget = int(parts[10])
     
     text = "🏪 " + (
         "Использовать Барахолку?"
@@ -587,11 +625,11 @@ async def select_flea_market_for_loyalty(callback: CallbackQuery, user_service):
     buttons = [
         [InlineKeyboardButton(
             text="✅ " + ("Да" if user.language == "ru" else "Yes"),
-            callback_data=f"gen_loyalty_final:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{budget}:1"
+            callback_data=f"gen_loyalty_final:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{ref_ll}:{budget}:1"
         )],
         [InlineKeyboardButton(
             text="❌ " + ("Нет" if user.language == "ru" else "No"),
-            callback_data=f"gen_loyalty_final:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{budget}:0"
+            callback_data=f"gen_loyalty_final:{weapon_id}:{prapor_ll}:{therapist_ll}:{fence_ll}:{skier_ll}:{mechanic_ll}:{ragman_ll}:{jaeger_ll}:{ref_ll}:{budget}:0"
         )]
     ]
     
@@ -613,8 +651,9 @@ async def generate_loyalty_build_final(callback: CallbackQuery, user_service, we
     mechanic_ll = int(parts[6])
     ragman_ll = int(parts[7])
     jaeger_ll = int(parts[8])
-    budget = int(parts[9])
-    use_flea = bool(int(parts[10]))
+    ref_ll = int(parts[9])
+    budget = int(parts[10])
+    use_flea = bool(int(parts[11]))
     
     if not ai_gen_service:
         await callback.answer(get_text("ai_not_available", user.language), show_alert=True)
@@ -635,7 +674,8 @@ async def generate_loyalty_build_final(callback: CallbackQuery, user_service, we
         "skier": "Лыжник",
         "mechanic": "Механик",
         "ragman": "Барахольщик",
-        "jaeger": "Егерь"
+        "jaeger": "Егерь",
+        "ref": "Реф"
     }
     
     trader_levels = {
@@ -645,7 +685,8 @@ async def generate_loyalty_build_final(callback: CallbackQuery, user_service, we
         "skier": skier_ll,
         "mechanic": mechanic_ll,
         "ragman": ragman_ll,
-        "jaeger": jaeger_ll
+        "jaeger": jaeger_ll,
+        "ref": ref_ll
     }
     
     budget_text = f"{budget:,}₽" if budget > 0 else ("без лимита" if user.language == "ru" else "unlimited")
