@@ -309,13 +309,15 @@ Your response in English:"""
             else:
                 return get_text("ai_no_response", language)
         except Exception as e:
-            logger.error(f"Error in general query: {e}")
+            logger.error(f"Error in general question: {e}")
             return get_text("ai_error", language)
     
     async def _fallback_response(self, text: str, user_id: int, language: str) -> str:
-        """Fallback response when AI is not available."""
-        # Provide helpful response directing to menu options
-        fallback_text = get_text("ai_fallback", language)
+        # Basic fallback message without Markdown to avoid parsing errors
+        if language == "ru":
+            fallback_text = "Ассистент недоступен. Используйте меню для работы с ботом."
+        else:
+            fallback_text = "Assistant is not available. Use menu to work with the bot."
         
         # Try to provide relevant menu suggestions based on keywords
         text_lower = text.lower()
@@ -323,18 +325,29 @@ Your response in English:"""
         suggestions = []
         
         if any(kw in text_lower for kw in ["сборк", "build", "оружи", "weapon"]):
-            suggestions.append(get_text("suggestion_search_weapon", language))
-            suggestions.append(get_text("suggestion_random_build", language))
+            if language == "ru":
+                suggestions.append("Поиск оружия")
+                suggestions.append("Случайная сборка")
+            else:
+                suggestions.append("Search weapon")
+                suggestions.append("Random build")
         
         if any(kw in text_lower for kw in ["квест", "quest", "оружейник", "gunsmith"]):
-            suggestions.append(get_text("suggestion_quest_builds", language))
+            if language == "ru":
+                suggestions.append("Квесты")
+            else:
+                suggestions.append("Quests")
         
         if any(kw in text_lower for kw in ["мета", "meta", "лучш", "best"]):
-            suggestions.append(get_text("suggestion_meta_builds", language))
+            if language == "ru":
+                suggestions.append("Лучшее оружие")
+            else:
+                suggestions.append("Best weapons")
         
         if suggestions:
+            header = "\n\nВозможно, вы ищете:" if language == "ru" else "\n\nMaybe you're looking for:"
             suggestions_text = "\n".join(f"• {s}" for s in suggestions)
-            return f"{fallback_text}\n\n{get_text('suggestions', language)}:\n{suggestions_text}"
+            return f"{fallback_text}{header}\n{suggestions_text}"
         
         return fallback_text
     
