@@ -144,7 +144,7 @@ class ContextBuilder:
     
     async def build_quest_context(self, quest_name: Optional[str] = None, language: str = "ru") -> str:
         """
-        Build context about quests (especially Gunsmith quests).
+        Build context about quests (all quests from tarkov.dev API).
         
         Args:
             quest_name: Specific quest to focus on (optional)
@@ -153,7 +153,7 @@ class ContextBuilder:
         Returns:
             Formatted string with quest information
         """
-        quests = await self.api.get_weapon_build_tasks(lang=language)
+        quests = await self.api.get_all_tasks(lang=language)
         
         if not quests:
             return "No quest information available."
@@ -171,22 +171,26 @@ class ContextBuilder:
                 return self._format_quest_details(matching_quests[0], language)
             return f"Quest '{quest_name}' not found."
         
-        # Return all gunsmith quests
-        context = "Available weapon build quests:\n\n"
-        for quest in quests[:20]:  # Limit to 20 quests
-            quest_name = quest.get("name", "Unknown")
+        # Return summary of all quests grouped by trader
+        context = "Available quests from tarkov.dev API:\n\n"
+        
+        # Group by trader
+        trader_quests = {}
+        for quest in quests:
             trader = quest.get("trader", {}).get("name", "Unknown")
-            level = quest.get("minPlayerLevel", 0)
-            
-            context += f"**{quest_name}** (Trader: {trader}, Level: {level})\n"
-            
-            # Add objectives
-            objectives = quest.get("objectives", [])
-            for obj in objectives[:3]:  # First 3 objectives
-                obj_desc = obj.get("description", "")
-                if obj_desc:
-                    context += f"  - {obj_desc}\n"
-            
+            if trader not in trader_quests:
+                trader_quests[trader] = []
+            trader_quests[trader].append(quest)
+        
+        # Show quests per trader (limit output)
+        for trader, trader_quest_list in list(trader_quests.items())[:10]:  # Top 10 traders
+            context += f"**{trader}** ({len(trader_quest_list)} quests):\n"
+            for quest in trader_quest_list[:5]:  # First 5 quests per trader
+                quest_name = quest.get("name", "Unknown")
+                level = quest.get("minPlayerLevel", 0)
+                context += f"  - {quest_name} (Level {level})\n"
+            if len(trader_quest_list) > 5:
+                context += f"  ... and {len(trader_quest_list) - 5} more\n"
             context += "\n"
         
         return context
@@ -242,13 +246,14 @@ class ContextBuilder:
         Returns:
             Formatted quest info including objectives, rewards, requirements
         """
-        # Try to find quest
-        tasks = await self.api.get_weapon_build_tasks(lang=language)
+        # Try to find quest in all tasks
+        tasks = await self.api.get_all_tasks(lang=language)
         
         quest = None
         for task in tasks:
             if (task.get("name", "").lower() == quest_name_or_id.lower() or 
-                task.get("id") == quest_name_or_id):
+                task.get("id") == quest_name_or_id or
+                quest_name_or_id.lower() in task.get("name", "").lower()):
                 quest = task
                 break
         
