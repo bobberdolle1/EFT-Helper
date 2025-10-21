@@ -4,23 +4,22 @@ from localization import get_text
 
 
 def get_main_menu_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
-    """Get main menu reply keyboard with v3.0 features."""
+    """Get main menu reply keyboard with v5.3 features."""
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
                 KeyboardButton(text=get_text("search_weapon", language)),
-                KeyboardButton(text=get_text("dynamic_random_build", language))
-            ],
-            [
-                KeyboardButton(text=get_text("random_build", language)),
-                KeyboardButton(text=get_text("meta_builds", language))
+                KeyboardButton(text=get_text("random_build", language))
             ],
             [
                 KeyboardButton(text=get_text("all_quest_builds", language)),
-                KeyboardButton(text=get_text("loyalty_builds", language))
+                KeyboardButton(text=get_text("loyalty_build_menu", language))
             ],
             [
-                KeyboardButton(text=get_text("best_weapons", language)),
+                KeyboardButton(text=get_text("budget_build_menu", language)),
+                KeyboardButton(text=get_text("best_weapons", language))
+            ],
+            [
                 KeyboardButton(text=get_text("settings", language))
             ]
         ],

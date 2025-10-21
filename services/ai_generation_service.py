@@ -11,7 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 class AIGenerationService:
-    """Service for AI-powered weapon build generation."""
+    """Service for AI-powered weapon build generation using Ollama."""
+    
+    # Tier definitions for build quality
+    TIER_DISTRIBUTION = {
+        "S": 0.10,  # 10% - Top tier, expensive
+        "A": 0.20,  # 20% - Excellent quality
+        "B": 0.40,  # 40% - Good, balanced
+        "C": 0.20,  # 20% - Budget-friendly
+        "D": 0.10   # 10% - Experimental/weak
+    }
     
     def __init__(
         self, 
@@ -26,19 +35,58 @@ class AIGenerationService:
         self.ollama_url = ollama_url
         self.model = ollama_model
     
-    async def generate_build(
+    async def generate_build_with_ai(
         self,
-        user_request: str,
+        intent: str,
+        context: Dict,
         user_id: int,
         language: str = "ru"
     ) -> Optional[Dict]:
         """
-        Generate weapon build based on user request using LLM.
+        Unified AI build generation based on intent.
         
         Args:
-            user_request: User's natural language request
-            user_id: Telegram user ID
-            language: User's language (ru/en)
+            intent: Type of generation ("random_build", "meta_build", "quest_build", "custom_request")
+            context: Context dictionary with weapon_id, budget, loyalty, tier, quest_name, etc.
+            user_id: User ID for preferences
+            language: Response language
+            
+        Returns:
+            Dict with build data including tier
+        """
+        try:
+            # Build context string based on intent
+            context_str = await self._build_context_for_intent(intent, context, user_id, language)
+            
+            # Create prompt based on intent
+            prompt = self._create_prompt_for_intent(intent, context, context_str, language)
+            
+            # Call Ollama
+            response = await self._call_ollama(prompt)
+            
+            if not response:
+                return None
+            
+            # Parse response and extract tier
+            build_data = self._parse_build_response(response, language)
+            build_data["intent"] = intent
+            build_data["tier"] = self._extract_tier_from_response(response, context.get("target_tier"))
+            
+            return build_data
+            
+        except Exception as e:
+            logger.error(f"Error in AI build generation: {e}", exc_info=True)
+            return None
+    
+    async def generate_build(
+        self, 
+        user_request: str, 
+        user_id: int, 
+        language: str = "ru"
+    ) -> Optional[Dict]:
+        """
+        Legacy method - converts user request to intent and calls generate_build_with_ai.
+        Kept for backward compatibility.
             
         Returns:
             Dict with build information or None if generation failed
@@ -238,17 +286,19 @@ class AIGenerationService:
 Твоя задача — помогать игрокам создавать оптимальные сборки оружия на основе актуальных данных из tarkov.dev.
 
 ВАЖНЫЕ ПРАВИЛА:
-1. Всегда используй ТОЛЬКО данные из предоставленного контекста (ID оружия, модулей, цены)
-2. КРИТИЧНО: Генерируй сборки с учётом СТРОГОЙ совместимости слотов:
-   - Каждый модуль ДОЛЖЕН быть из списка allowedItems для своего слота
-   - НЕ используй модули, которых нет в списке для конкретного слота
-   - НЕ используй гранатомёты, подствольники там, где их нет в allowedItems
-3. Учитывай бюджет пользователя (если указан)
-4. Структурируй ответ иерархически: базовое оружие → каждый слот → модули → характеристики
-5. Добавляй короткое обоснование выбора модулей
-6. Указывай итоговую стоимость и доступность (торговцы/барахолка)
+1. НИКОГДА не показывай ID предметов (tarkov_id) пользователю - только названия
+2. Всегда используй ТОЛЬКО данные из предоставленного контекста (названия оружия, модулей, цены)
+3. КРИТИЧНО: Генерируй сборки с учётом СТРОГОЙ совместимости слотов:
+   - Каждый модуль ДОЛЖЕН быть ТОЛЬКО из списка для конкретного слота в контексте
+   - ПРОВЕРЯЙ что модуль указан в разделе этого слота
+   - НЕ придумывай модули которых нет в контексте
+   - НЕ используй гранатомёты, подствольники там, где их нет в списке
+4. Учитывай бюджет пользователя (если указан)
+5. Структурируй ответ иерархически: базовое оружие → каждый слот → модули → характеристики
+6. Добавляй короткое обоснование выбора модулей
+7. Указывай итоговую стоимость и доступность (торговцы/барахолка)
 
-ФОРМАТ ОТВЕТА:
+ФОРМАТ ОТВЕТА (НЕ ПОКАЗЫВАЙ ID ПРЕДМЕТОВ):
 🤖 Никита Буянов:
 Вот ваша сборка для [ОРУЖИЕ]:
 
@@ -259,12 +309,12 @@ class AIGenerationService:
    📍 [ТОРГОВЕЦ] L[УРОВЕНЬ]
 
 2️⃣ **[СЛОТ 1]:**
-   а) [МОДУЛЬ] — [ЦЕНА] ₽ (Эргономика: +X, Отдача: -Y)
-      📍 [ТОРГОВЕЦ] L[УРОВЕНЬ] или Flea Market
+   - [МОДУЛЬ] — [ЦЕНА] ₽ (Эргономика: +X, Отдача: -Y)
+   📍 [ТОРГОВЕЦ] L[УРОВЕНЬ] или Flea Market
 
 3️⃣ **[СЛОТ 2]:**
-   а) [МОДУЛЬ] — [ЦЕНА] ₽
-      📍 [ТОРГОВЕЦ] L[УРОВЕНЬ] или Flea Market
+   - [МОДУЛЬ] — [ЦЕНА] ₽
+   📍 [ТОРГОВЕЦ] L[УРОВЕНЬ] или Flea Market
 
 ...
 
@@ -282,17 +332,19 @@ class AIGenerationService:
 Your task is to help players create optimal weapon builds based on actual data from tarkov.dev.
 
 IMPORTANT RULES:
-1. ONLY use data from provided context (weapon IDs, module IDs, prices)
-2. CRITICAL: Generate builds with STRICT slot compatibility:
-   - Each module MUST be from allowedItems list for its slot
-   - DO NOT use modules not listed in allowedItems for specific slot
-   - DO NOT use grenade launchers or underbarrel devices where they're not in allowedItems
-3. Consider user's budget (if specified)
-4. Structure response hierarchically: base weapon → each slot → modules → stats
-5. Add brief reasoning for module choices
-6. Include total cost and availability (traders/flea)
+1. NEVER show item IDs (tarkov_id) to user - only names
+2. ONLY use data from provided context (weapon names, module names, prices)
+3. CRITICAL: Generate builds with STRICT slot compatibility:
+   - Each module MUST be ONLY from the list for that specific slot in context
+   - VERIFY that module is listed in that slot's section
+   - DO NOT invent modules not present in context
+   - DO NOT use grenade launchers or underbarrel devices where they're not listed
+4. Consider user's budget (if specified)
+5. Structure response hierarchically: base weapon → each slot → modules → stats
+6. Add brief reasoning for module choices
+7. Include total cost and availability (traders/flea)
 
-RESPONSE FORMAT:
+RESPONSE FORMAT (DO NOT SHOW ITEM IDs):
 🤖 Nikita Buyanov:
 Here's your build for [WEAPON]:
 
@@ -303,12 +355,12 @@ Here's your build for [WEAPON]:
    📍 [TRADER] L[LEVEL]
 
 2️⃣ **[SLOT 1]:**
-   a) [MODULE] — [PRICE] ₽ (Ergonomics: +X, Recoil: -Y)
-      📍 [TRADER] L[LEVEL] or Flea Market
+   - [MODULE] — [PRICE] ₽ (Ergonomics: +X, Recoil: -Y)
+   📍 [TRADER] L[LEVEL] or Flea Market
 
 3️⃣ **[SLOT 2]:**
-   a) [MODULE] — [PRICE] ₽
-      📍 [TRADER] L[LEVEL] or Flea Market
+   - [MODULE] — [PRICE] ₽
+   📍 [TRADER] L[LEVEL] or Flea Market
 
 ...
 
@@ -346,28 +398,440 @@ Here's your build for [WEAPON]:
             prompt = f"""Ты — Никита Буянов, эксперт по квестам Escape from Tarkov.
 Создай сборку для квеста "{quest_name}".
 
-ВАЖНО: Сборка должна ТОЧНО соответствовать требованиям квеста (конкретные модули, характеристики).
+КРИТИЧНО ВАЖНО:
+1. Сборка ДОЛЖНА включать ВСЕ модули из раздела "REQUIRED MODULES"
+2. НЕ показывай ID предметов пользователю
+3. Если указаны STAT REQUIREMENTS - сборка ДОЛЖНА их выполнить
+4. Используй ТОЛЬКО модули из контекста
+5. Объясни как требования квеста выполнены
 
 ИНФОРМАЦИЯ О КВЕСТЕ:
 {quest_context}
 
 {user_context}
 
-Создай сборку, которая выполнит все требования квеста:"""
+Создай сборку на русском языке, которая ТОЧНО выполнит все требования квеста:"""
         else:
             prompt = f"""You are Nikita Buyanov, expert on Escape from Tarkov quests.
 Create a build for quest "{quest_name}".
 
-IMPORTANT: Build must EXACTLY match quest requirements (specific modules, stats).
+CRITICALLY IMPORTANT:
+1. Build MUST include ALL modules from "REQUIRED MODULES" section
+2. DO NOT show item IDs to user
+3. If STAT REQUIREMENTS are specified - build MUST meet them
+4. Use ONLY modules from context
+5. Explain how quest requirements are fulfilled
 
 QUEST INFORMATION:
 {quest_context}
 
 {user_context}
 
-Create a build that fulfills all quest requirements:"""
+Create a build in English that EXACTLY fulfills all quest requirements:"""
         
         return prompt
+    
+    def _select_random_tier(self) -> str:
+        """Select random tier based on distribution."""
+        import random
+        rand = random.random()
+        cumulative = 0
+        for tier, probability in self.TIER_DISTRIBUTION.items():
+            cumulative += probability
+            if rand <= cumulative:
+                return tier
+        return "B"  # Default fallback
+    
+    def _extract_tier_from_response(self, response: str, target_tier: Optional[str] = None) -> str:
+        """Extract tier from AI response or use target tier."""
+        if target_tier:
+            return target_tier
+        
+        # Try to find tier in response
+        tier_pattern = r'(?:Tier|Тир)[:\s]+([SABCD])[\-]?Tier'
+        match = re.search(tier_pattern, response, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        
+        # Default to B tier
+        return "B"
+    
+    async def _build_context_for_intent(
+        self,
+        intent: str,
+        context: Dict,
+        user_id: int,
+        language: str
+    ) -> str:
+        """Build context string based on intent type."""
+        from .context_builder import ContextBuilder
+        context_builder = ContextBuilder(self.api, self.db)
+        
+        parts = []
+        
+        if intent == "meta_build":
+            # Meta build - focus on optimal performance
+            weapon_id = context.get("weapon_id")
+            if weapon_id:
+                weapon_context = await context_builder.build_weapon_context(weapon_id, language)
+                module_context = await context_builder.build_modules_context(weapon_id, language)
+                parts.extend([weapon_context, module_context])
+        
+        elif intent == "quest_build":
+            # Quest build - exact requirements
+            quest_name = context.get("quest_name")
+            if quest_name:
+                quest_context = await context_builder.build_quest_context(quest_name, language)
+                parts.append(quest_context)
+            weapon_id = context.get("weapon_id")
+            if weapon_id:
+                module_context = await context_builder.build_modules_context(weapon_id, language)
+                parts.append(module_context)
+        
+        elif intent == "random_build":
+            # Random build - with tier variety
+            weapon_id = context.get("weapon_id")
+            if weapon_id:
+                weapon_context = await context_builder.build_weapon_context(weapon_id, language)
+                module_context = await context_builder.build_modules_context(weapon_id, language)
+                parts.extend([weapon_context, module_context])
+        
+        else:  # custom_request
+            weapon_id = context.get("weapon_id")
+            if weapon_id:
+                weapon_context = await context_builder.build_weapon_context(weapon_id, language)
+                module_context = await context_builder.build_modules_context(weapon_id, language)
+                parts.extend([weapon_context, module_context])
+        
+        # Add user context
+        user_context = await context_builder.build_user_context(user_id)
+        parts.append(user_context)
+        
+        return "\n\n---\n\n".join(parts)
+    
+    def _create_prompt_for_intent(
+        self,
+        intent: str,
+        context: Dict,
+        context_str: str,
+        language: str
+    ) -> str:
+        """Create prompt based on intent type."""
+        target_tier = context.get("target_tier", "B")
+        budget = context.get("budget")
+        weapon_name = context.get("weapon_name", "weapon")
+        
+        if intent == "meta_build":
+            if language == "ru":
+                return f"""Ты — Никита Буянов, эксперт Escape from Tarkov.
+Создай оптимальную мета-сборку для {weapon_name}.
+
+ВАЖНО:
+1. ПИШИ ВСЁ НА РУССКОМ! Названия модулей, характеристики - всё на русском
+2. Для КАЖДОГО модуля УКАЖИ:
+   - Название (на русском)
+   - Торговец и уровень: Прапор LL2, Механик LL4, Барахолка
+   - Цену
+3. Используй лучшие модули (тир A/S)
+4. Фокус на минимальной отдаче и высокой эргономике
+5. Укажи тир в начале
+6. Объясни почему это мета
+
+ФОРМАТ:
+🔫 **{weapon_name}** - Тир [A/S]
+
+📝 **Описание:**
+[Почему это мета-сборка]
+
+🔧 **Модули:**
+1. [Название] - [Торговец LLХ] - [Цена]₽
+2. ...
+
+💰 **Стоимость:** [Сумма]₽
+
+КОНТЕКСТ:
+{context_str}
+
+Создай сборку:"""
+            
+            else:
+                return f"""You are Nikita Buyanov, Escape from Tarkov expert.
+Create optimal meta build for {weapon_name}.
+
+IMPORTANT:
+1. WRITE IN ENGLISH! Module names, characteristics - all in English
+2. For EACH module SPECIFY:
+   - Module name
+   - Trader and level: Prapor LL2, Mechanic LL4, Flea Market
+   - Price
+3. Use best modules (tier A/S)
+4. Focus on minimal recoil and high ergonomics
+5. Specify tier at start
+6. Explain why this is meta
+
+FORMAT:
+🔫 **{weapon_name}** - Tier [A/S]
+
+📝 **Description:**
+[Why this is meta]
+
+🔧 **Modules:**
+1. [Name] - [Trader LLX] - [Price]₽
+2. ...
+
+💰 **Total Cost:** [Sum]₽
+
+CONTEXT:
+{context_str}
+
+Create build:"""
+        
+        elif intent == "quest_build":
+            quest_name = context.get("quest_name", "квеста")
+            return f"""Ты — Никита Буянов, эксперт по квестам Escape from Tarkov.
+Создай сборку для {quest_name}.
+
+КРИТИЧНО ВАЖНО:
+1. Сборка ДОЛЖНА включать ВСЕ требуемые модули из REQUIRED MODULES
+2. НЕ показывай ID предметов
+3. Выполни все STAT REQUIREMENTS
+4. Укажи тир сборки
+5. Объясни как требования выполнены
+
+КОНТЕКСТ:
+{context_str}
+
+Создай квестовую сборку на русском:"""
+        
+        if intent == "random_build":
+            target_tier = context.get("target_tier", "B")
+            if language == "ru":
+                return f"""Ты — Никита Буянов, эксперт Escape from Tarkov.
+Создай случайную сборку для {weapon_name}.
+
+ВАЖНО:
+1. ПИШИ ВСЁ НА РУССКОМ! Названия модулей, характеристики - всё на русском
+2. Для КАЖДОГО модуля УКАЖИ:
+   - Название (на русском)
+   - Торговец/Барахолка
+   - Цену
+3. Сборка должна быть тира {target_tier}
+4. Укажи тир в начале
+5. Будь креативным
+
+ФОРМАТ:
+🔫 **{weapon_name}** - Тир {target_tier}
+
+📝 **Описание:**
+[Краткое описание]
+
+🔧 **Модули:**
+1. [Название] - [Торговец/Барахолка] - [Цена]₽
+2. ...
+
+💰 **Стоимость:** [Сумма]₽
+
+КОНТЕКСТ:
+{context_str}
+
+Создай сборку:"""
+            else:
+                return f"""You are Nikita Buyanov, Escape from Tarkov expert.
+Create random build for {weapon_name}.
+
+IMPORTANT:
+1. WRITE IN ENGLISH! Module names, characteristics - all in English
+2. For EACH module SPECIFY:
+   - Module name
+   - Trader/Flea Market
+   - Price
+3. Build should be tier {target_tier}
+4. Specify tier at start
+5. Be creative
+
+FORMAT:
+🔫 **{weapon_name}** - Tier {target_tier}
+
+📝 **Description:**
+[Brief description]
+
+🔧 **Modules:**
+1. [Name] - [Trader/Flea] - [Price]₽
+2. ...
+
+💰 **Total Cost:** [Sum]₽
+
+CONTEXT:
+{context_str}
+
+Create build:"""
+        
+        # Custom request (loyalty build, budget build, etc.)
+        trader_levels = context.get("trader_levels")
+        budget = context.get("budget")
+        use_flea = context.get("use_flea_market", True)
+        
+        if trader_levels:
+            # Loyalty-based build
+            trader_names_ru = {
+                "prapor": "Прапор",
+                "therapist": "Терапевт",
+                "fence": "Скупщик",
+                "skier": "Лыжник",
+                "mechanic": "Механик",
+                "ragman": "Барахольщик",
+                "jaeger": "Егерь"
+            }
+            
+            trader_names_en = {
+                "prapor": "Prapor",
+                "therapist": "Therapist",
+                "fence": "Fence",
+                "skier": "Skier",
+                "mechanic": "Mechanic",
+                "ragman": "Ragman",
+                "jaeger": "Jaeger"
+            }
+            
+            trader_names = trader_names_ru if language == "ru" else trader_names_en
+            
+            loyalty_info = "\n".join([
+                f"{trader_names[trader]}: LL{level}" + (" (недоступен)" if level == 0 else "")
+                for trader, level in trader_levels.items()
+            ])
+            
+            budget_info = f"\nБюджет: {budget:,} ₽" if budget else "\nБюджет: без ограничений"
+            flea_info = "\nБарахолка: " + ("доступна" if use_flea else "НЕ доступна")
+            
+            if language == "ru":
+                return f"""Ты — Никита Буянов, эксперт Escape from Tarkov.
+Создай сборку для {weapon_name} с учетом уровней лояльности торговцев.
+
+УРОВНИ ЛОЯЛЬНОСТИ:
+{loyalty_info}{budget_info}{flea_info}
+
+ВАЖНО:
+1. ПИШИ ВСЁ НА РУССКОМ ЯЗЫКЕ! Названия модулей, слоты, характеристики - всё на русском
+2. Для КАЖДОГО модуля УКАЖИ:
+   - Название модуля (на русском!)
+   - Торговец и уровень: Прапор LL2, Механик LL4, Барахолка и т.д.
+   - Цену в рублях
+3. Используй ТОЛЬКО модули доступные на указанных уровнях лояльности
+4. Если у торговца LL0 (Егерь) - НЕ используй его модули
+5. {'Можешь использовать барахолку' if use_flea else 'НЕ используй барахолку, только торговцы'}
+6. Соблюдай бюджет
+7. Укажи тир сборки в начале
+8. Объясни почему выбраны эти модули
+
+ФОРМАТ ОТВЕТА:
+🔫 **{weapon_name}** - Тир [S/A/B/C/D]
+
+📝 **Описание:**
+[Краткое описание сборки]
+
+🔧 **Модули:**
+1. [Название на русском] - [Торговец LLХ] - [Цена]₽
+2. ...
+
+💰 **Стоимость:** [Сумма]₽
+
+КОНТЕКСТ:
+{context_str}
+
+Создай сборку:"""
+            else:
+                return f"""You are Nikita Buyanov, Escape from Tarkov expert.
+Create build for {weapon_name} considering trader loyalty levels.
+
+LOYALTY LEVELS:
+{loyalty_info}{budget_info_en}{flea_info_en}
+
+IMPORTANT:
+1. WRITE EVERYTHING IN ENGLISH! Module names, slots, characteristics - all in English
+2. For EACH module SPECIFY:
+   - Module name (in English)
+   - Trader and level: Prapor LL2, Mechanic LL4, Flea Market, etc.
+   - Price in rubles
+3. Use ONLY modules available at specified loyalty levels
+4. If trader has LL0 (Jaeger) - DO NOT use his modules
+5. {'You can use flea market' if use_flea else 'DO NOT use flea market, only traders'}
+6. Stay within budget
+7. Specify build tier at the start
+8. Explain why these modules were chosen
+
+FORMAT:
+🔫 **{weapon_name}** - Tier [S/A/B/C/D]
+
+📝 **Description:**
+[Brief build description]
+
+🔧 **Modules:**
+1. [Module name] - [Trader LLX] - [Price]₽
+2. ...
+
+💰 **Total Cost:** [Sum]₽
+
+CONTEXT:
+{context_str}
+
+Create build:"""
+        
+        elif budget:
+            # Budget-only build
+            budget_text = f"{budget:,} ₽"
+            if language == "ru":
+                return f"""Ты — Никита Буянов, эксперт Escape from Tarkov.
+Создай сборку для {weapon_name} с бюджетом {budget_text}.
+
+ВАЖНО:
+1. ПИШИ ВСЁ НА РУССКОМ! Названия модулей, характеристики - всё на русском
+2. Для КАЖДОГО модуля УКАЖИ:
+   - Название (на русском)
+   - Торговец/Барахолка
+   - Цену
+3. Уложись в бюджет {budget_text}
+4. Оптимизируй цена/качество
+5. Укажи тир в начале
+6. Объясни выбор
+
+ФОРМАТ:
+🔫 **{weapon_name}** - Тир [S/A/B/C/D]
+
+📝 **Описание:**
+[Краткое описание]
+
+🔧 **Модули:**
+1. [Название] - [Торговец/Барахолка] - [Цена]₽
+2. ...
+
+💰 **Стоимость:** [Сумма]₽
+
+КОНТЕКСТ:
+{context_str}
+
+Создай сборку:"""
+            else:
+                return f"""You are Nikita Buyanov, Escape from Tarkov expert.
+Create build for {weapon_name} with budget {budget_text}.
+
+IMPORTANT:
+1. WRITE IN ENGLISH! Module names, characteristics - all in English
+2. For EACH module SPECIFY:
+   - Module name
+   - Trader/Flea Market
+   - Price
+3. Stay within budget {budget_text}
+4. Optimize price/quality ratio
+5. Specify build tier
+6. Explain module choices
+
+CONTEXT:
+{context_str}
+
+Create build in English:"""
+        
+        # Fallback to generic custom request
+        return self._create_build_prompt(context.get("user_request", ""), context_str, language)
     
     async def _call_ollama(self, prompt: str) -> Optional[str]:
         """Call Ollama API to generate response."""

@@ -1,38 +1,39 @@
-# Настройка голосовых сообщений (Whisper через Ollama)
+# Настройка голосовых сообщений (faster-whisper)
 
-## Использование Whisper через Ollama
+## Использование faster-whisper для локальной транскрибации
 
-Для работы с голосовыми сообщениями используется **Whisper через Ollama** - унифицированное решение для AI и голосовой транскрибации.
+Для работы с голосовыми сообщениями используется **faster-whisper** - оптимизированная версия Whisper от OpenAI.
 
 ### Преимущества:
-- ✅ Один сервис для Qwen3-8B и Whisper (Ollama)
-- ✅ Не требуется Python зависимостей
+- ✅ В 4-5 раз быстрее оригинального Whisper
+- ✅ Работает на CPU (не требует GPU)
+- ✅ Меньше потребление памяти
+- ✅ Поддержка Python 3.9+ (включая 3.14)
+- ✅ Автоматическое скачивание моделей
 - ✅ Docker-образ остаётся лёгким (~500 MB)
-- ✅ Простая установка и обновление моделей
-- ✅ Работает на любой версии Python
 
 ---
 
-## Шаг 1: Установка Whisper в Ollama
+## Шаг 1: Установка faster-whisper
 
-### 1.1 Скачать модель Whisper
-
-```powershell
-# Рекомендуется - быстрая и легкая
-ollama pull dimavz/whisper-tiny
-
-# Или другие размеры для лучшего качества:
-ollama pull dimavz/whisper-base
-ollama pull dimavz/whisper-small
-```
-
-### 1.2 Проверить установку
+### 1.1 Установка через Poetry (рекомендуется)
 
 ```powershell
-ollama list
+# В директории проекта
+poetry run pip install faster-whisper
 ```
 
-Вы должны увидеть `dimavz/whisper-tiny` в списке моделей.
+### 1.2 Или через pip напрямую
+
+```powershell
+pip install faster-whisper
+```
+
+### 1.3 Проверить установку
+
+```powershell
+python -c "from faster_whisper import WhisperModel; print('faster-whisper installed!')"
+```
 
 ### Размеры моделей:
 
@@ -42,26 +43,26 @@ ollama list
 | `base`    | ~145 MB | Быстро | Хорошее |
 | `small`   | ~460 MB | Средне | Отличное |
 | `medium`  | ~1.5 GB | Медленно | Превосходное |
-| `large`   | ~2.9 GB | Очень медленно | Наилучшее |
+| `large-v2`| ~2.9 GB | Очень медленно | Наилучшее |
 
-**Рекомендация:** `tiny` или `base` для большинства случаев.
+**Рекомендация:** `tiny` для быстрой работы, `base` для баланса скорости и качества.
+
+**Модели скачиваются автоматически** при первом использовании.
 
 ---
 
-## Шаг 2: Настройка Docker
+## Шаг 2: Настройка Docker (если используете)
 
-Docker-контейнер настроен на использование локального Ollama через `host.docker.internal`:
+Docker автоматически использует faster-whisper, установленный через pip.
 
-```yaml
-# docker-compose.yml
-extra_hosts:
-  - "host.docker.internal:host-gateway"
+**Важно:** faster-whisper должен быть установлен в виртуальном окружении проекта:
 
-environment:
-  - OLLAMA_URL=http://host.docker.internal:11434
+```bash
+# Внутри контейнера или локально
+poetry run pip install faster-whisper
 ```
 
-Никаких дополнительных volumes не требуется!
+Модели будут скачаны в `~/.cache/huggingface/` и переиспользоваться между запусками.
 
 ---
 
@@ -71,10 +72,12 @@ environment:
 
 ```bash
 # .env
-WHISPER_MODEL=tiny  # tiny, base, small, medium, large
+WHISPER_MODEL=tiny  # tiny, base, small, medium, large-v2
 ```
 
 По умолчанию используется `tiny`.
+
+**При первом запуске** модель скачается автоматически (~75 MB для tiny).
 
 ---
 
@@ -104,27 +107,28 @@ Transcription successful: ...
 
 ## Устранение проблем
 
-### Ошибка: "Ollama API error"
+### Ошибка: "faster-whisper not installed"
 
-**Решение:** Убедитесь, что Ollama запущен:
+**Решение:** Установите faster-whisper:
 ```powershell
-ollama serve
+poetry run pip install faster-whisper
 ```
 
-### Модель не найдена
+### Ошибка компиляции numpy на Windows
 
-**Решение:** Скачайте модель:
+**Решение:** Используйте предсобранные колёса:
 ```powershell
-ollama pull dimavz/whisper-tiny
+poetry run pip install faster-whisper
+# Вместо poetry add (которое пытается собрать из исходников)
 ```
 
-### Проверка доступности
+### Модель не скачивается
 
+**Решение:** Проверьте интернет-соединение. Модели скачиваются с HuggingFace:
 ```powershell
-curl http://localhost:11434/api/tags
+# Проверка
+python -c "from faster_whisper import WhisperModel; WhisperModel('tiny')"
 ```
-
-Вы должны увидеть список моделей, включая `dimavz/whisper-tiny`.
 
 ### Медленная транскрипция
 
@@ -138,20 +142,21 @@ curl http://localhost:11434/api/tags
 
 Чтобы изменить модель:
 
-1. Скачать новую модель:
-```powershell
-ollama pull dimavz/whisper-base
+1. Обновить `.env`:
+```bash
+WHISPER_MODEL=base  # или small, medium, large-v2
 ```
 
-2. Обновить `.env`:
+2. Перезапустить бот:
 ```bash
-WHISPER_MODEL=base
-```
+# Локально
+poetry run python start.py
 
-3. Перезапустить бот:
-```bash
+# Или Docker
 docker-compose restart eft-helper-bot
 ```
+
+3. При первом запуске новая модель скачается автоматически.
 
 ---
 
@@ -166,6 +171,18 @@ docker-compose restart eft-helper-bot
 
 ## Дополнительная информация
 
-- Ollama Whisper: https://ollama.com/dimavz/whisper-tiny
-- Документация Ollama: https://ollama.com/
+- faster-whisper GitHub: https://github.com/guillaumekln/faster-whisper
 - Оригинальный Whisper: https://github.com/openai/whisper
+- HuggingFace модели: https://huggingface.co/guillaumekln
+
+---
+
+## Сравнение с оригинальным Whisper
+
+| Параметр | openai-whisper | faster-whisper |
+|----------|----------------|----------------|
+| Скорость | Базовая | 4-5x быстрее |
+| Память | Высокая | Оптимизированная |
+| Точность | Эталон | Идентичная |
+| CPU/GPU | Оба | CPU оптимизирован |
+| Python | 3.9-3.13 | 3.9+ (включая 3.14) |

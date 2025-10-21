@@ -1,42 +1,42 @@
-"""Voice transcription service using Whisper via Ollama."""
+"""Voice transcription service using faster-whisper."""
 import logging
 import os
-import aiohttp
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class VoiceTranscriber:
-    """Transcribes voice messages using Whisper via Ollama."""
+    """Transcribes voice messages using faster-whisper."""
     
-    def __init__(self, model_size: str = "tiny", ollama_url: str = "http://localhost:11434"):
+    def __init__(self, model_size: str = "tiny", **kwargs):
         """
         Initialize voice transcriber.
         
         Args:
             model_size: Whisper model size (tiny, base, small, medium, large)
-            ollama_url: URL of Ollama server
         """
         self.model_size = model_size
-        self.ollama_url = ollama_url
-        self.model_name = f"dimavz/whisper-{model_size}"
-        self._session = None
+        self._model = None
     
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-    
-    async def close(self):
-        """Close HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
+    def _load_model(self):
+        """Load faster-whisper model lazily."""
+        if self._model is None:
+            try:
+                from faster_whisper import WhisperModel
+                logger.info(f"Loading faster-whisper model: {self.model_size}")
+                self._model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
+                logger.info("faster-whisper model loaded successfully")
+            except ImportError:
+                logger.error("faster-whisper not installed. Install with: pip install faster-whisper")
+                raise
+            except Exception as e:
+                logger.error(f"Error loading faster-whisper model: {e}")
+                raise
     
     async def transcribe(self, audio_file_path: str, language: str = "ru") -> Optional[str]:
         """
-        Transcribe audio file to text using Ollama.
+        Transcribe audio file to text using faster-whisper.
         
         Args:
             audio_file_path: Path to audio file
@@ -50,33 +50,24 @@ class VoiceTranscriber:
                 logger.error(f"Audio file not found: {audio_file_path}")
                 return None
             
-            logger.info(f"Transcribing audio file via Ollama: {audio_file_path}")
+            # Load model if not loaded
+            if self._model is None:
+                self._load_model()
             
-            # Read audio file as base64
-            import base64
-            with open(audio_file_path, "rb") as f:
-                audio_data = base64.b64encode(f.read()).decode("utf-8")
+            logger.info(f"Transcribing audio file: {audio_file_path}")
             
-            # Call Ollama API
-            session = await self._get_session()
+            # Map language codes
+            whisper_lang = "ru" if language == "ru" else "en"
             
-            payload = {
-                "model": self.model_name,
-                "prompt": audio_data,
-                "stream": False
-            }
+            # Transcribe (run in executor to avoid blocking)
+            import asyncio
+            segments, info = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self._model.transcribe(audio_file_path, language=whisper_lang)
+            )
             
-            async with session.post(
-                f"{self.ollama_url}/api/generate",
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=60)
-            ) as response:
-                if response.status != 200:
-                    logger.error(f"Ollama API error: {response.status}")
-                    return None
-                
-                result = await response.json()
-                transcribed_text = result.get("response", "").strip()
+            # Collect all segments
+            transcribed_text = " ".join([segment.text for segment in segments]).strip()
             
             if transcribed_text:
                 logger.info(f"Transcription successful: {transcribed_text[:50]}...")
@@ -90,18 +81,9 @@ class VoiceTranscriber:
             return None
     
     async def is_available(self) -> bool:
-        """Check if Ollama Whisper is available."""
+        """Check if faster-whisper is available."""
         try:
-            session = await self._get_session()
-            async with session.get(
-                f"{self.ollama_url}/api/tags",
-                timeout=aiohttp.ClientTimeout(total=5)
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    models = [m["name"] for m in data.get("models", [])]
-                    return self.model_name in models
-                return False
-        except Exception as e:
-            logger.error(f"Error checking Ollama availability: {e}")
+            from faster_whisper import WhisperModel
+            return True
+        except ImportError:
             return False

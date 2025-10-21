@@ -17,7 +17,7 @@ from services import WeaponService, BuildService, UserService, SyncService, Admi
 from services.random_build_service import RandomBuildService
 from services import CompatibilityChecker, TierEvaluator, BuildGenerator
 from services import ContextBuilder, AIGenerationService, AIAssistant
-from handlers import common, search, builds, loyalty, tier_list, settings
+from handlers import common, search, builds, loyalty, tier_list, settings, budget
 from handlers import community_builds, dynamic_builds, admin
 
 # Load environment variables
@@ -93,6 +93,7 @@ class BotApplication:
         self.dp.include_router(common.router)
         self.dp.include_router(search.router)
         self.dp.include_router(builds.router)
+        self.dp.include_router(budget.router)  # v5.3 Budget builds
         self.dp.include_router(community_builds.router)  # v3.0
         self.dp.include_router(dynamic_builds.router)    # v3.0
         self.dp.include_router(loyalty.router)

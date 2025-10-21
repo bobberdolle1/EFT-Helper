@@ -483,6 +483,39 @@ async def start_bot():
     # Initialize API client once (shared across all requests)
     api_client = TarkovAPIClient()
     
+    # v5.1 AI Services
+    print("\n🤖 Инициализация AI-ассистента...")
+    ai_assistant = None
+    ai_generation_service = None
+    context_builder = None
+    news_service = None
+    
+    try:
+        from services import AIAssistant, AIGenerationService, ContextBuilder, NewsService
+        
+        ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
+        
+        print(f"   Ollama: {ollama_url}")
+        print(f"   Model: {ollama_model}")
+        logger.info(f"Initializing AI services: Ollama at {ollama_url}, model {ollama_model}")
+        
+        news_service = NewsService()
+        print("   ✅ NewsService")
+        context_builder = ContextBuilder(api_client, db)
+        print("   ✅ ContextBuilder")
+        ai_generation_service = AIGenerationService(api_client, db, ollama_url, ollama_model)
+        print("   ✅ AIGenerationService")
+        ai_assistant = AIAssistant(api_client, db, ai_generation_service, news_service)
+        print("   ✅ AIAssistant")
+        
+        print("✅ AI-ассистент инициализирован!\n")
+        logger.info("✅ AI services initialized successfully")
+    except Exception as e:
+        print(f"❌ Ошибка инициализации AI: {e}\n")
+        logger.error(f"❌ Failed to initialize AI services: {e}", exc_info=True)
+        logger.warning("⚠️  Bot will work without AI assistant")
+    
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
     storage = MemoryStorage()
@@ -512,6 +545,11 @@ async def start_bot():
         data["admin_service"] = AdminService(db)
         data["api_client"] = api_client
         data["weapon_service"] = WeaponService(db, api_client)
+        # v5.1 AI services
+        data["ai_assistant"] = ai_assistant
+        data["ai_generation_service"] = ai_generation_service
+        data["context_builder"] = context_builder
+        data["news_service"] = news_service
         return await handler(event, data)
     
     # Global error handler

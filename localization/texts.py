@@ -9,6 +9,8 @@ TEXTS = {
         "random_build": "🎲 Случайная сборка",
         "meta_builds": "⚔️ Мета-сборки",
         "loyalty_builds": "🤝 Сборки по лояльности торговцев",
+        "loyalty_build_menu": "🤝 Сборка по лояльности",
+        "budget_build_menu": "💰 Сборка по бюджету",
         "best_weapons": "⭐ Лучшее оружие",
         "settings": "⚙️ Настройки",
         
@@ -267,6 +269,17 @@ TEXTS = {
         # News
         "news_loading": "⏳ Загружаю новости Escape from Tarkov...",
         "news_error": "❌ Не удалось загрузить новости. Попробуйте позже.",
+        
+        # Tier System (v5.3)
+        "build_tier_label": "🏆 Тир сборки",
+        "tier_s_desc": "S-Tier: Топовые характеристики, дорогие модули",
+        "tier_a_desc": "A-Tier: Отличное качество, баланс цены и эффективности",
+        "tier_b_desc": "B-Tier: Хорошая сборка, доступная цена",
+        "tier_c_desc": "C-Tier: Средняя сборка, бюджетная",
+        "tier_d_desc": "D-Tier: Экспериментальная или слабая сборка",
+        "generating_meta_build": "⚙️ Генерирую мета-сборку...",
+        "meta_build_button": "🤖 Сгенерировать мета-сборку",
+        "random_build_with_tier": "🎲 Генерирую случайную сборку (тир: {tier})...",
     },
     "en": {
         # Main menu
@@ -276,6 +289,8 @@ TEXTS = {
         "random_build": "🎲 Random Build",
         "meta_builds": "⚔️ Meta Builds",
         "loyalty_builds": "🤝 Loyalty Builds",
+        "loyalty_build_menu": "🤝 Loyalty Build",
+        "budget_build_menu": "💰 Budget Build",
         "best_weapons": "⭐ Best Weapons",
         "settings": "⚙️ Settings",
         "dynamic_random_build": "🎲 Dynamic Build",
@@ -306,6 +321,17 @@ TEXTS = {
         # News
         "news_loading": "⏳ Loading Escape from Tarkov news...",
         "news_error": "❌ Failed to load news. Please try again later.",
+        
+        # Tier System (v5.3)
+        "build_tier_label": "🏆 Build Tier",
+        "tier_s_desc": "S-Tier: Top characteristics, expensive modules",
+        "tier_a_desc": "A-Tier: Excellent quality, balanced price and effectiveness",
+        "tier_b_desc": "B-Tier: Good build, affordable price",
+        "tier_c_desc": "C-Tier: Average build, budget-friendly",
+        "tier_d_desc": "D-Tier: Experimental or weak build",
+        "generating_meta_build": "⚙️ Generating meta build...",
+        "meta_build_button": "🤖 Generate Meta Build",
+        "random_build_with_tier": "🎲 Generating random build (tier: {tier})...",
     }
 }
 

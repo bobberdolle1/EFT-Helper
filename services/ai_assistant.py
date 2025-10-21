@@ -62,6 +62,10 @@ class AIAssistant:
                     else:
                         return "🤖 Nikita Buyanov: Sorry, I can't get news right now. Try again later."
             
+            # Detect if this is a quest info request (v5.3)
+            if self._is_quest_info_request(user_text, user_language):
+                return await self._handle_quest_info(user_text, user_id, user_language)
+            
             # Detect if this is a build request
             if self._is_build_request(user_text, user_language):
                 # Send generating indicator
@@ -158,6 +162,30 @@ class AIAssistant:
         
         return any(keyword in text_lower for keyword in keywords)
     
+    def _is_quest_info_request(self, text: str, language: str) -> bool:
+        """Check if message is asking about quest information (v5.3)."""
+        text_lower = text.lower()
+        
+        quest_keywords_ru = [
+            "квест", "задани", "задача", "как пройти", "как выполнить",
+            "что нужно", "цели квеста", "награда", "оружейник"
+        ]
+        
+        quest_keywords_en = [
+            "quest", "task", "mission", "how to complete", "how to pass",
+            "what do i need", "objectives", "reward", "gunsmith"
+        ]
+        
+        # Check for quest-related keywords
+        keywords = quest_keywords_ru if language == "ru" else quest_keywords_en
+        has_quest_keyword = any(keyword in text_lower for keyword in keywords)
+        
+        # But exclude if it's a build request for quest
+        build_keywords = ["сборк", "build"] if language == "ru" else ["build"]
+        is_build_request = any(bk in text_lower for bk in build_keywords)
+        
+        return has_quest_keyword and not is_build_request
+    
     def _is_build_request(self, text: str, language: str) -> bool:
         """Check if message is a build request."""
         text_lower = text.lower()
@@ -176,8 +204,60 @@ class AIAssistant:
         
         return any(keyword in text_lower for keyword in keywords)
     
+    async def _handle_quest_info(self, text: str, user_id: int, language: str) -> str:
+        """Handle quest information requests (v5.3)."""
+        from .context_builder import ContextBuilder
+        context_builder = ContextBuilder(self.api, self.db)
+        
+        # Try to extract quest name from text
+        quest_name = self._extract_quest_name(text, language)
+        
+        if quest_name:
+            # Get detailed quest info
+            quest_info = await context_builder.build_quest_info_context(quest_name, language)
+            
+            if "not found" in quest_info.lower():
+                # Quest not found, use AI to help
+                return await self._handle_general_query(text, user_id, language)
+            
+            # Format response with quest info
+            if language == "ru":
+                response = f"🤖 Никита Буянов:\n\n{quest_info}"
+            else:
+                response = f"🤖 Nikita Buyanov:\n\n{quest_info}"
+            
+            return response
+        else:
+            # No specific quest name found, let AI handle it
+            return await self._handle_general_query(text, user_id, language)
+    
+    def _extract_quest_name(self, text: str, language: str) -> Optional[str]:
+        """Extract quest name from user text."""
+        import re
+        
+        # Common quest name patterns
+        gunsmith_patterns = [
+            r"оружейник[а-я]*\s*(\d+)",  # Russian: Оружейник 1, etc.
+            r"gunsmith[\s-]*(\d+)",       # English: Gunsmith 1, etc.
+        ]
+        
+        for pattern in gunsmith_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                number = match.group(1)
+                return f"Gunsmith - Part {number}" if language == "en" else f"Оружейник - Часть {number}"
+        
+        # Try to find quoted quest names
+        quote_patterns = [r'"([^"]+)"', r"'([^']+)'"]
+        for pattern in quote_patterns:
+            match = re.search(pattern, text)
+            if match:
+                return match.group(1)
+        
+        return None
+    
     async def _handle_general_query(self, text: str, user_id: int, language: str) -> str:
-        """Handle general questions and conversation."""
+        """Handle general conversation/questions."""
         # Check if Ollama is available
         ollama_available = await self.ai_gen.check_ollama_available()
         
@@ -193,24 +273,34 @@ class AIAssistant:
         # Create prompt for general conversation
         if language == "ru":
             prompt = f"""Ты — Никита Буянов, главный разработчик Escape from Tarkov.
-Отвечай на вопросы игроков дружелюбно и профессионально.
+Отвечай на вопросы игроков дружелюбно и профессионально на РУССКОМ языке.
+
+ВАЖНО: 
+- Отвечай ТОЛЬКО на русском языке
+- Не показывай ID предметов
+- Используй актуальную информацию об игре
 
 Информация о пользователе:
 {user_context}
 
 Вопрос игрока: {text}
 
-Твой ответ:"""
+Твой ответ на русском:"""
         else:
             prompt = f"""You are Nikita Buyanov, lead developer of Escape from Tarkov.
-Answer player questions in a friendly and professional manner.
+Answer player questions in a friendly and professional manner in ENGLISH.
+
+IMPORTANT:
+- Respond ONLY in English
+- Do not show item IDs
+- Use current game information
 
 User information:
 {user_context}
 
 Player's question: {text}
 
-Your response:"""
+Your response in English:"""
         
         try:
             response = await self.ai_gen._call_ollama(prompt)

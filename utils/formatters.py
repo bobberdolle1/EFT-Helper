@@ -117,6 +117,43 @@ def get_trader_emoji(trader: str) -> str:
     return TRADER_EMOJIS.get(trader, TRADER_EMOJIS.get(trader.lower(), "💼"))
 
 
+def format_ai_build_with_tier(build_text: str, tier: str, language: str = "ru") -> str:
+    """
+    Format AI-generated build with tier display (v5.3).
+    
+    Args:
+        build_text: Raw AI response text
+        tier: Build tier (S/A/B/C/D)
+        language: Language for localization
+        
+    Returns:
+        Formatted build text with tier badge
+    """
+    tier_emojis = {
+        "S": "🏆",
+        "A": "🥇",
+        "B": "🥈",
+        "C": "🥉",
+        "D": "📊"
+    }
+    
+    tier_emoji = tier_emojis.get(tier.upper(), "⭐")
+    
+    # Get tier description
+    tier_desc_key = f"tier_{tier.lower()}_desc"
+    tier_desc = get_text(tier_desc_key, language)
+    
+    # Add tier badge at the top
+    tier_label = get_text("build_tier_label", language)
+    tier_badge = f"{tier_emoji} **{tier_label}: {tier.upper()}**\n_{tier_desc}_\n\n"
+    
+    # Check if build_text already has tier info (to avoid duplication)
+    if f"Tier: {tier}" in build_text or f"Тир: {tier}" in build_text:
+        return build_text
+    
+    return tier_badge + build_text
+
+
 def format_price(price: int, language: str = "ru") -> str:
     """Format price with proper currency symbol."""
     if language == "ru":

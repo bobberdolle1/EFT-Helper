@@ -16,34 +16,91 @@ router = Router()
 
 
 @router.message(F.text.in_([get_text("random_build", "ru"), get_text("random_build", "en")]))
-async def show_random_build(message: Message, user_service, random_build_service):
-    """Show truly random build with dynamic generation (no dependency on builds table)."""
+async def show_random_build(message: Message, user_service, ai_gen_service=None, random_build_service=None):
+    """Generate random build with AI using tier variety (v5.3)."""
     user = await user_service.get_or_create_user(message.from_user.id)
     
-    # Show loading message
-    loading_msg = await message.answer(get_text("generating_random", user.language))
-    
-    try:
-        # Generate truly random build with dynamic generation
-        build_data = await random_build_service.generate_random_build_for_random_weapon(lang=user.language)
-        
-        if not build_data:
-            error_text = (
-                "⚠️ Не удалось сгенерировать сборку. Попробуйте позже или обновите данные через /sync."
-                if user.language == "ru"
-                else "⚠️ Failed to generate build. Try again later or update data via /sync."
+    # Use AI generation if available
+    if ai_gen_service:
+        try:
+            # Select random tier
+            from services.ai_generation_service import AIGenerationService
+            selected_tier = ai_gen_service._select_random_tier()
+            
+            # Show loading with tier info
+            loading_text = get_text("random_build_with_tier", user.language, tier=selected_tier)
+            loading_msg = await message.answer(loading_text)
+            
+            # Get random weapon from database
+            from database import Database
+            db = Database()
+            all_weapons = await db.get_all_weapons()
+            
+            if not all_weapons:
+                error_text = "❌ Нет оружия в базе" if user.language == "ru" else "❌ No weapons in database"
+                await loading_msg.edit_text(error_text)
+                return
+            
+            import random
+            weapon = random.choice(all_weapons)
+            weapon_name = weapon.name_ru if user.language == "ru" else weapon.name_en
+            
+            # Generate build with AI
+            context = {
+                "weapon_id": weapon.tarkov_id,
+                "weapon_name": weapon_name,
+                "target_tier": selected_tier,
+            }
+            
+            build_data = await ai_gen_service.generate_build_with_ai(
+                intent="random_build",
+                context=context,
+                user_id=user.id,
+                language=user.language
             )
-            await loading_msg.edit_text(error_text)
+            
+            if not build_data or not build_data.get("text"):
+                error_text = "❌ Не удалось сгенерировать сборку" if user.language == "ru" else "❌ Failed to generate build"
+                await loading_msg.edit_text(error_text)
+                return
+            
+            # Format build with tier display
+            from utils.formatters import format_ai_build_with_tier
+            tier = build_data.get("tier", selected_tier)
+            formatted_build = format_ai_build_with_tier(build_data["text"], tier, user.language)
+            
+            # Send build result
+            await loading_msg.edit_text(formatted_build, parse_mode="Markdown")
             return
-        
-        # Format build information
-        build_text, total_cost = random_build_service.format_build_info(build_data, user.language)
-        
-        await loading_msg.edit_text(build_text, parse_mode="Markdown")
+            
+        except Exception as e:
+            logger.error(f"Error in AI random build generation: {e}", exc_info=True)
+            # Fall through to legacy method
     
-    except Exception as e:
-        logger.error(f"Error generating random build: {e}", exc_info=True)
-        error_text = (
+    # Fallback to legacy random build service
+    if random_build_service:
+        loading_msg = await message.answer(get_text("generating_random", user.language))
+        
+        try:
+            build_data = await random_build_service.generate_random_build_for_random_weapon(lang=user.language)
+            
+            if not build_data:
+                error_text = (
+                    "⚠️ Не удалось сгенерировать сборку. Попробуйте позже или обновите данные через /sync."
+                    if user.language == "ru"
+                    else "⚠️ Failed to generate build. Try again later or update data via /sync."
+                )
+                await loading_msg.edit_text(error_text)
+                return
+            
+            # Format build information
+            build_text, total_cost = random_build_service.format_build_info(build_data, user.language)
+            
+            await loading_msg.edit_text(build_text, parse_mode="Markdown")
+            
+        except Exception as e:
+            logger.error(f"Error generating random build: {e}", exc_info=True)
+            error_text = (
             "⚠️ Не удалось сгенерировать сборку. Попробуйте позже или обновите данные через /sync."
             if user.language == "ru"
             else "⚠️ Failed to generate build. Try again later or update data via /sync."
@@ -72,41 +129,11 @@ async def show_truly_random_build(message: Message, user_service, random_build_s
     await loading_msg.edit_text(build_text, parse_mode="Markdown")
 
 
-@router.message(F.text.in_([get_text("meta_builds", "ru"), get_text("meta_builds", "en")]))
-async def show_meta_builds(message: Message, user_service, build_service):
-    """Show curated meta builds from META_BUILDS data."""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    from database.meta_builds_data import get_all_meta_builds
-    
-    user = await user_service.get_or_create_user(message.from_user.id)
-    
-    # Get all meta builds from static data
-    all_builds = get_all_meta_builds()
-    
-    if not all_builds:
-        await message.answer(get_text("no_meta_builds", user.language))
-        return
-    
-    text = "🏆 " + ("Мета сборки" if user.language == "ru" else "Meta Builds") + "\n\n"
-    text += ("Лучшие сборки с оптимальными характеристиками за свою цену" if user.language == "ru" 
-             else "Best builds with optimal characteristics for their price")
-    
-    # Create buttons for each build
-    buttons = []
-    for build_data in all_builds[:20]:  # Limit to 20 builds
-        weapon = build_data['weapon']
-        build_type = build_data['type']
-        name = build_data.get('name_ru' if user.language == 'ru' else 'name_en', f"{weapon} {build_type}")
-        
-        buttons.append([
-            InlineKeyboardButton(
-                text=name,
-                callback_data=f"meta_build:{weapon}:{build_type}"
-            )
-        ])
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, reply_markup=keyboard)
+# Meta builds handler removed in v5.3 - meta builds now generated via AI through search
+# Users can now generate meta builds by:
+# 1. Searching for a weapon via "Search Weapon" button
+# 2. Selecting the weapon
+# 3. Clicking "Generate Meta Build" button
 
 
 @router.message(F.text.in_([get_text("quest_builds", "ru"), get_text("quest_builds", "en")]))

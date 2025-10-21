@@ -66,12 +66,11 @@ async def handle_language_selection(callback: CallbackQuery, db: Database):
     get_text("main_menu", "ru"), get_text("main_menu", "en"),
     get_text("search_weapon", "ru"), get_text("search_weapon", "en"),
     get_text("random_build", "ru"), get_text("random_build", "en"),
-    get_text("meta_builds", "ru"), get_text("meta_builds", "en"),
     get_text("all_quest_builds", "ru"), get_text("all_quest_builds", "en"),
     get_text("best_weapons", "ru"), get_text("best_weapons", "en"),
     get_text("settings", "ru"), get_text("settings", "en"),
-    get_text("loyalty_builds", "ru"), get_text("loyalty_builds", "en"),
-    get_text("dynamic_random_build", "ru"), get_text("dynamic_random_build", "en"),
+    get_text("loyalty_build_menu", "ru"), get_text("loyalty_build_menu", "en"),
+    get_text("budget_build_menu", "ru"), get_text("budget_build_menu", "en"),
 ]))
 async def handle_text_message(message: Message, user_service, ai_assistant=None):
     """Handle all non-menu text messages and route to AI assistant."""
