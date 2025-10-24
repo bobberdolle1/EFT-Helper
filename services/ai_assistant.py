@@ -51,17 +51,6 @@ class AIAssistant:
         
         # Try AI generation
         try:
-            # Detect if this is a news request
-            if self._is_news_request(user_text, user_language):
-                if self.news_service:
-                    news_items = await self.news_service.get_latest_news(lang=user_language, limit=5)
-                    return self.news_service.format_news_message(news_items, user_language)
-                else:
-                    if user_language == "ru":
-                        return "🤖 Никита Буянов: Извините, сейчас не могу получить новости. Попробуйте позже."
-                    else:
-                        return "🤖 Nikita Buyanov: Sorry, I can't get news right now. Try again later."
-            
             # Detect if this is a quest info request (v5.3)
             if self._is_quest_info_request(user_text, user_language):
                 return await self._handle_quest_info(user_text, user_id, user_language)
@@ -280,16 +269,22 @@ class AIAssistant:
         
         user_context = await context_builder.build_user_context(user_id)
         
-        # Get latest news for context
+        # Get latest news from Twitter for context
         news_context = ""
         if self.news_service:
             try:
                 news_items = await self.news_service.get_latest_news(lang=language, limit=3)
                 if news_items:
-                    news_list = "\n".join([f"- {item['title']}" for item in news_items])
-                    news_context = f"\n\nПоследние новости Tarkov:\n{news_list}\n" if language == "ru" else f"\n\nLatest Tarkov news:\n{news_list}\n"
+                    news_list = "\n".join([
+                        f"- {item['title']} ({item['date']})\n  {item['description']}\n  Link: {item['link']}"
+                        for item in news_items
+                    ])
+                    if language == "ru":
+                        news_context = f"\n\nПоследние новости из Twitter @tarkov:\n{news_list}\n"
+                    else:
+                        news_context = f"\n\nLatest news from Twitter @tarkov:\n{news_list}\n"
             except Exception as e:
-                logger.error(f"Failed to fetch news for context: {e}")
+                logger.error(f"Failed to fetch news: {e}")
         
         # Check if question is about quests/tasks and add quest context
         text_lower = text.lower()
@@ -321,7 +316,7 @@ class AIAssistant:
 - Не показывай ID предметов
 - Используй актуальную информацию об игре из контекста
 - Вся информация о квестах берется из API tarkov.dev
-- Если игрок спрашивает о новостях - используй информацию из контекста последних новостей ниже
+- Если игрок спрашивает о новостях - используй информацию из контекста новостей Twitter ниже
 
 Информация о пользователе:
 {user_context}{news_context}
@@ -342,7 +337,7 @@ IMPORTANT:
 - Do not show item IDs
 - Use current game information from context
 - All quest information comes from tarkov.dev API
-- If player asks about news - use information from latest news context below
+- If player asks about news - use information from Twitter news context below
 
 User information:
 {user_context}{news_context}
