@@ -266,7 +266,7 @@ TEXTS = {
         # AI Assistant (v5.1)
         "ai_not_available": "❌ AI-ассистент временно недоступен. Используйте меню для навигации.",
         "ai_error": "❌ Ошибка AI-ассистента. Попробуйте ещё раз или используйте меню.",
-        "ai_generating": "🤖 Никита Буянов: Генерирую сборку, подождите...",
+        "ai_generating": "🤖 Никита Буянов: Обрабатываю запрос...",
         
         # News
         "news_loading": "⏳ Загружаю новости Escape from Tarkov...",
@@ -318,7 +318,7 @@ TEXTS = {
         # AI Assistant (v5.1)
         "ai_not_available": "❌ AI assistant is temporarily unavailable. Use menu for navigation.",
         "ai_error": "❌ AI assistant error. Please try again or use the menu.",
-        "ai_generating": "🤖 Nikita Buyanov: Generating build, please wait...",
+        "ai_generating": "🤖 Nikita Buyanov: Processing request...",
         
         # News
         "news_loading": "⏳ Loading Escape from Tarkov news...",

@@ -85,6 +85,10 @@ class AIAssistant:
                     return await self._fallback_response(user_text, user_id, user_language)
             
             # General conversation/questions
+            # Send generating indicator
+            indicator_text = get_text("ai_generating", user_language)
+            await message.answer(indicator_text)
+            
             response = await self._handle_general_query(user_text, user_id, user_language)
             return response
             
@@ -276,6 +280,17 @@ class AIAssistant:
         
         user_context = await context_builder.build_user_context(user_id)
         
+        # Get latest news for context
+        news_context = ""
+        if self.news_service:
+            try:
+                news_items = await self.news_service.get_latest_news(lang=language, limit=3)
+                if news_items:
+                    news_list = "\n".join([f"- {item['title']}" for item in news_items])
+                    news_context = f"\n\nПоследние новости Tarkov:\n{news_list}\n" if language == "ru" else f"\n\nLatest Tarkov news:\n{news_list}\n"
+            except Exception as e:
+                logger.error(f"Failed to fetch news for context: {e}")
+        
         # Check if question is about quests/tasks and add quest context
         text_lower = text.lower()
         quest_keywords = ["квест", "задание", "задача", "оружейник", "gunsmith", "quest", "task", "mission"] if language == "ru" else ["quest", "task", "mission", "gunsmith"]
@@ -306,9 +321,10 @@ class AIAssistant:
 - Не показывай ID предметов
 - Используй актуальную информацию об игре из контекста
 - Вся информация о квестах берется из API tarkov.dev
+- Если игрок спрашивает о новостях - используй информацию из контекста последних новостей ниже
 
 Информация о пользователе:
-{user_context}
+{user_context}{news_context}
 
 {quest_context_section}Вопрос игрока: {text}
 
@@ -326,9 +342,10 @@ IMPORTANT:
 - Do not show item IDs
 - Use current game information from context
 - All quest information comes from tarkov.dev API
+- If player asks about news - use information from latest news context below
 
 User information:
-{user_context}
+{user_context}{news_context}
 
 {quest_context_section_en}Player's question: {text}
 

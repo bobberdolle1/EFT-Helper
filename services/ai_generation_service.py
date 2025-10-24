@@ -910,11 +910,18 @@ Create build in English:"""
                     timeout=aiohttp.ClientTimeout(total=60)
                 ) as response:
                     if response.status != 200:
-                        logger.error(f"Ollama API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Ollama API error {response.status}: {error_text}")
                         return None
                     
-                    result = await response.json()
-                    return result.get("response", "")
+                    # Parse response (Ollama cloud models return text/plain with valid JSON)
+                    try:
+                        result = await response.json(content_type=None)
+                        return result.get("response", "")
+                    except Exception as e:
+                        error_text = await response.text()
+                        logger.error(f"Failed to parse Ollama response: {e}. Response: {error_text[:500]}")
+                        return None
         
         except Exception as e:
             logger.error(f"Error calling Ollama: {e}", exc_info=True)
