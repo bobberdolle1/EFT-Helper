@@ -1,5 +1,6 @@
 """Service for fetching Escape from Tarkov news."""
 import logging
+import asyncio
 import aiohttp
 import feedparser
 from typing import List, Dict, Optional
@@ -11,13 +12,17 @@ logger = logging.getLogger(__name__)
 class NewsService:
     """Service for fetching and formatting EFT news."""
     
-    # Twitter/X via Nitter RSS (fallback instances)
-    NITTER_INSTANCES = [
-        "https://nitter.poast.org",
-        "https://nitter.privacydev.net",
-        "https://nitter.net",
+    # RSSHub instances for Telegram channel
+    RSSHUB_INSTANCES = [
+        "https://rsshub.app",
+        "https://rss.shab.fun",
+        "https://rsshub.rssforever.com",
+        "https://rsshub.liumingye.cn",
     ]
-    TWITTER_ACCOUNT = "tarkov"
+    TELEGRAM_CHANNEL = "escapefromtarkovRU"  # Russian news
+    
+    # VK RSS feed (backup)
+    VK_RSS_URL = "https://vk.com/rss/escapefromtarkov"
     
     def __init__(self):
         self._session: Optional[aiohttp.ClientSession] = None
@@ -35,76 +40,127 @@ class NewsService:
     
     async def get_latest_news(self, lang: str = "ru", limit: int = 5) -> List[Dict]:
         """
-        Get latest Escape from Tarkov news from Twitter via Nitter.
+        Get latest Escape from Tarkov news from Telegram or VK RSS.
         
         Args:
             lang: Language (ru/en)
             limit: Maximum number of news items to return
             
         Returns:
-            List of news items from Twitter
+            List of news items
         """
-        # Try to fetch from Twitter via Nitter
-        twitter_news = await self._fetch_twitter_news(limit)
-        if twitter_news:
-            logger.info(f"Fetched {len(twitter_news)} news items from Twitter")
-            return twitter_news
+        # Try Telegram RSS first (primary source)
+        tg_news = await self._fetch_telegram_news(limit, lang)
+        if tg_news:
+            logger.info(f"✅ Fetched {len(tg_news)} news items from Telegram")
+            return tg_news
         
-        # Fallback to official sources
-        logger.warning("Twitter fetch failed, using fallback sources")
+        # Try VK RSS as fallback
+        vk_news = await self._fetch_vk_news(limit)
+        if vk_news:
+            logger.info(f"✅ Fetched {len(vk_news)} news items from VK")
+            return vk_news
+        
+        # All feeds failed - return fallback
+        logger.error("❌ All RSS feeds failed, using fallback sources")
         return self._get_fallback_news(lang)
     
-    async def _fetch_twitter_news(self, limit: int) -> List[Dict]:
-        """Fetch latest tweets from @tarkov via Nitter RSS."""
+    async def _fetch_vk_news(self, limit: int) -> List[Dict]:
+        """Fetch latest posts from VK RSS."""
+        try:
+            session = await self._get_session()
+            logger.info("Trying VK RSS feed")
+            
+            async with session.get(
+                self.VK_RSS_URL,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status != 200:
+                    logger.warning(f"VK RSS returned {response.status}")
+                    return []
+                
+                content = await response.text()
+                feed = feedparser.parse(content)
+                
+                if not feed.entries:
+                    logger.warning("No entries in VK RSS")
+                    return []
+                
+                # Format news items
+                news_items = []
+                for entry in feed.entries[:limit]:
+                    title = entry.get("title", "No title")
+                    description = self._clean_description(entry.get("description", entry.get("summary", "")))
+                    
+                    news_item = {
+                        "title": title[:100] + "..." if len(title) > 100 else title,
+                        "description": description,
+                        "link": entry.get("link", ""),
+                        "date": self._parse_date(entry.get("published", ""))
+                    }
+                    news_items.append(news_item)
+                
+                logger.info(f"Fetched {len(news_items)} posts from VK")
+                return news_items
+                
+        except Exception as e:
+            logger.error(f"Error fetching VK RSS: {e}")
+            return []
+    
+    async def _fetch_telegram_news(self, limit: int, lang: str = "ru") -> List[Dict]:
+        """Fetch latest posts from Telegram RSS via multiple RSSHub instances."""
         session = await self._get_session()
         
-        # Try each Nitter instance until one works
-        for instance in self.NITTER_INSTANCES:
+        # Choose channel based on language
+        channel = "escapefromtarkovEN" if lang == "en" else "escapefromtarkovRU"
+        
+        # Try each RSSHub instance
+        for instance in self.RSSHUB_INSTANCES:
             try:
-                rss_url = f"{instance}/{self.TWITTER_ACCOUNT}/rss"
-                logger.info(f"Trying Nitter instance: {instance}")
+                rss_url = f"{instance}/telegram/channel/{channel}"
+                logger.info(f"Trying RSSHub instance: {instance}")
                 
                 async with session.get(
                     rss_url,
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=15),
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
                 ) as response:
                     if response.status != 200:
-                        logger.warning(f"Nitter instance {instance} returned {response.status}")
+                        logger.warning(f"RSSHub {instance} returned {response.status}")
                         continue
                     
                     content = await response.text()
-                    
-                    # Parse RSS feed
                     feed = feedparser.parse(content)
                     
                     if not feed.entries:
-                        logger.warning(f"No entries in RSS from {instance}")
+                        logger.warning(f"No entries from {instance}")
                         continue
                     
-                    # Format news items from tweets
+                    # Format news items
                     news_items = []
                     for entry in feed.entries[:limit]:
-                        # Clean tweet text
                         title = entry.get("title", "No title")
                         description = self._clean_description(entry.get("description", entry.get("summary", "")))
                         
                         news_item = {
-                            "title": title[:100] + "..." if len(title) > 100 else title,
-                            "description": description,
-                            "link": entry.get("link", "").replace(instance, "https://x.com"),  # Convert to x.com link
+                            "title": title[:150] + "..." if len(title) > 150 else title,
+                            "description": description[:400] + "..." if len(description) > 400 else description,
+                            "link": entry.get("link", f"https://t.me/{channel}"),
                             "date": self._parse_date(entry.get("published", ""))
                         }
                         news_items.append(news_item)
                     
-                    logger.info(f"Successfully fetched {len(news_items)} tweets from {instance}")
+                    logger.info(f"✅ Successfully fetched {len(news_items)} posts from {instance}")
                     return news_items
                     
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout fetching from {instance}")
+                continue
             except Exception as e:
-                logger.error(f"Error fetching from {instance}: {e}")
+                logger.warning(f"Error fetching from {instance}: {e}")
                 continue
         
-        # All instances failed
-        logger.error("All Nitter instances failed")
+        logger.error("All RSSHub instances failed")
         return []
     
     

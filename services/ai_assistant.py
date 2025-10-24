@@ -269,20 +269,20 @@ class AIAssistant:
         
         user_context = await context_builder.build_user_context(user_id)
         
-        # Get latest news from Twitter for context
+        # Get latest news from Telegram for context
         news_context = ""
         if self.news_service:
             try:
                 news_items = await self.news_service.get_latest_news(lang=language, limit=3)
                 if news_items:
                     news_list = "\n".join([
-                        f"- {item['title']} ({item['date']})\n  {item['description']}\n  Link: {item['link']}"
+                        f"- {item['title']} ({item['date']})\n  {item['description'][:200]}...\n  Link: {item['link']}"
                         for item in news_items
                     ])
                     if language == "ru":
-                        news_context = f"\n\nПоследние новости из Twitter @tarkov:\n{news_list}\n"
+                        news_context = f"\n\nПоследние новости из Telegram @escapefromtarkovRU:\n{news_list}\n"
                     else:
-                        news_context = f"\n\nLatest news from Twitter @tarkov:\n{news_list}\n"
+                        news_context = f"\n\nLatest news from Telegram @escapefromtarkovEN:\n{news_list}\n"
             except Exception as e:
                 logger.error(f"Failed to fetch news: {e}")
         
@@ -316,7 +316,8 @@ class AIAssistant:
 - Не показывай ID предметов
 - Используй актуальную информацию об игре из контекста
 - Вся информация о квестах берется из API tarkov.dev
-- Если игрок спрашивает о новостях - используй информацию из контекста новостей Twitter ниже
+- Если игрок спрашивает о новостях - используй информацию из контекста новостей Telegram ниже
+- Не выдумывай даты релизов или обновлений если их нет в контексте
 
 Информация о пользователе:
 {user_context}{news_context}
@@ -337,7 +338,8 @@ IMPORTANT:
 - Do not show item IDs
 - Use current game information from context
 - All quest information comes from tarkov.dev API
-- If player asks about news - use information from Twitter news context below
+- If player asks about news - use information from Telegram news context below
+- Do not make up release dates or updates if they are not in the context
 
 User information:
 {user_context}{news_context}
