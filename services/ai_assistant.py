@@ -1,6 +1,6 @@
 """Central AI assistant service - handles all user messages and voice input."""
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from aiogram.types import Message
 from api_clients import TarkovAPIClient
 from database import Database
@@ -273,16 +273,19 @@ class AIAssistant:
         news_context = ""
         if self.news_service:
             try:
-                news_items = await self.news_service.get_latest_news(lang=language, limit=3)
-                if news_items:
-                    news_list = "\n".join([
-                        f"- {item['title']} ({item['date']})\n  {item['description'][:200]}...\n  Link: {item['link']}"
-                        for item in news_items
+                # Get all recent news - let AI decide what's relevant
+                all_news = await self.news_service.get_latest_news(lang=language, limit=15)
+                if all_news:
+                    logger.info(f"Fetched {len(all_news)} news items for AI context")
+                    
+                    news_list = "\n\n".join([
+                        f"{i+1}. {item['title']} ({item['date']})\n   {item['description']}\n   Link: {item['link']}"
+                        for i, item in enumerate(all_news)
                     ])
                     if language == "ru":
-                        news_context = f"\n\nПоследние новости из Telegram @escapefromtarkovRU:\n{news_list}\n"
+                        news_context = f"\n\nВАЖНО! Последние новости из Telegram @escapefromtarkovRU ({len(all_news)} постов):\n{news_list}\n\nИСПОЛЬЗУЙ ЭТУ ИНФОРМАЦИЮ ДЛЯ ОТВЕТА НА ВОПРОС ИГРОКА!\n"
                     else:
-                        news_context = f"\n\nLatest news from Telegram @escapefromtarkovEN:\n{news_list}\n"
+                        news_context = f"\n\nIMPORTANT! Latest news from Telegram @escapefromtarkovEN ({len(all_news)} posts):\n{news_list}\n\nUSE THIS INFORMATION TO ANSWER THE PLAYER'S QUESTION!\n"
             except Exception as e:
                 logger.error(f"Failed to fetch news: {e}")
         
@@ -316,8 +319,9 @@ class AIAssistant:
 - Не показывай ID предметов
 - Используй актуальную информацию об игре из контекста
 - Вся информация о квестах берется из API tarkov.dev
-- Если игрок спрашивает о новостях - используй информацию из контекста новостей Telegram ниже
-- Не выдумывай даты релизов или обновлений если их нет в контексте
+- Если игрок спрашивает о новостях/релизе - ИСПОЛЬЗУЙ ВСЕ новости из контекста Telegram ниже, не только первую
+- Escape from Tarkov находится в бета-тестировании, полного релиза еще не было
+- Не выдумывай даты релизов если их нет в новостях
 
 Информация о пользователе:
 {user_context}{news_context}
@@ -338,8 +342,9 @@ IMPORTANT:
 - Do not show item IDs
 - Use current game information from context
 - All quest information comes from tarkov.dev API
-- If player asks about news - use information from Telegram news context below
-- Do not make up release dates or updates if they are not in the context
+- If player asks about news/release - USE ALL news from Telegram context below, not just the first one
+- Escape from Tarkov is in beta testing, there has been no full release yet
+- Do not make up release dates if they are not in the news
 
 User information:
 {user_context}{news_context}
