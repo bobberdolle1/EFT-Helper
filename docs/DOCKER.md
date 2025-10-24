@@ -31,7 +31,7 @@
 > 
 > **Требования для AI:**
 > - Ollama должен быть установлен и запущен на хосте: `ollama serve`
-> - Модель qwen3:8b должна быть загружена: `ollama pull qwen3:8b`
+> - Модель qwen3-coder:480b-cloud должна быть загружена: `ollama pull qwen3-coder:480b-cloud`
 
 ### Проверка установки:
 ```bash

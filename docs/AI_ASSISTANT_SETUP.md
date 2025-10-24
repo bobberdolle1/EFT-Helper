@@ -5,7 +5,7 @@
 
 ## Обзор
 
-В версии 5.1 EFT Helper внедрён локальный AI-ассистент **«Никита Буянов»** на базе модели Qwen3-8B через Ollama. Ассистент заменяет большую часть статичной логики генерации сборок и становится центральным способом взаимодействия с ботом.
+В версии 5.1 EFT Helper внедрён локальный AI-ассистент **«Никита Буянов»** на базе модели Qwen3-Coder-480B-Cloud через Ollama. Ассистент заменяет большую часть статичной логики генерации сборок и становится центральным способом взаимодействия с ботом.
 
 ## Основные возможности
 
@@ -33,7 +33,7 @@
 
 ### Минимальные требования:
 - **CPU:** 4 cores
-- **RAM:** 8 GB (для Ollama + Qwen3-8B)
+- **RAM:** 8 GB (для Ollama + Qwen3-Coder-480B-Cloud)
 - **Диск:** 10 GB свободного места
 - **ОС:** Linux/Windows/macOS с Docker
 
@@ -59,24 +59,24 @@ docker-compose up -d
 docker-compose ps
 ```
 
-#### Шаг 2: Загрузка модели Qwen3-8B (обязательно!)
+#### Шаг 2: Загрузка модели Qwen3-Coder-480B-Cloud (обязательно!)
 
 Модель **НЕ скачивается автоматически**. Необходимо вручную загрузить:
 
 ```bash
-# Загрузить модель Qwen3-8B (займет 5-10 минут, ~4.7 GB)
-docker exec -it eft-helper-ollama ollama pull qwen3:8b
+# Загрузить модель Qwen3-Coder-480B-Cloud (займет 5-10 минут)
+docker exec -it eft-helper-ollama ollama pull qwen3-coder:480b-cloud
 
 # Проверить, что модель загружена
 docker exec -it eft-helper-ollama ollama list
-# Должно быть: qwen3:8b
+# Должно быть: qwen3-coder:480b-cloud
 ```
 
 #### Шаг 3: Тестирование
 
 ```bash
 # Тестовый запрос к модели
-docker exec -it eft-helper-ollama ollama run qwen3:8b "Привет"
+docker exec -it eft-helper-ollama ollama run qwen3-coder:480b-cloud "Привет"
 
 # Проверить логи бота
 docker-compose logs -f eft-helper-bot
@@ -104,7 +104,7 @@ ollama serve
 #### Шаг 3: Загрузка модели
 
 ```bash
-ollama pull qwen3:8b
+ollama pull qwen3-coder:480b-cloud
 ```
 
 #### Шаг 4: Установка зависимостей Python
@@ -308,7 +308,7 @@ docker-compose logs ollama
 docker exec -it eft-helper-ollama ollama list
 
 # Загрузить модель вручную
-docker exec -it eft-helper-ollama ollama pull qwen3:8b
+docker exec -it eft-helper-ollama ollama pull qwen3-coder:480b-cloud
 
 # Перезапустить бота после загрузки
 docker-compose restart eft-helper-bot
@@ -385,7 +385,7 @@ ollama pull qwen3:3b
 
 В `ai_generation_service.py`:
 ```python
-self.model = "qwen3:3b"  # Вместо qwen3:8b
+self.model = "qwen3:3b"  # Вместо qwen3-coder:480b-cloud (для экономии ресурсов)
 ```
 
 **3. Кэширование контекста**
@@ -433,7 +433,7 @@ Structured output → User
 **AI Assistant «Никита Буянов»**  
 В честь Никиты Буянова — основателя Battlestate Games и создателя Escape from Tarkov.
 
-Модель: [Qwen3-8B](https://github.com/QwenLM/Qwen) by Alibaba Cloud  
+Модель: [Qwen3-Coder-480B-Cloud](https://github.com/QwenLM/Qwen) by Alibaba Cloud  
 Voice: [OpenAI Whisper](https://github.com/openai/whisper)
 
 ---

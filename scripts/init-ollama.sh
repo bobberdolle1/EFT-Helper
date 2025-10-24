@@ -1,5 +1,5 @@
 #!/bin/bash
-# Initialize Ollama with Qwen2.5 model
+# Initialize Ollama with Qwen3-Coder-480B-Cloud model
 
 echo "🔄 Checking Ollama service..."
 
@@ -12,11 +12,11 @@ done
 echo "✅ Ollama is ready"
 
 # Check if model exists
-if ollama list | grep -q "qwen3:8b"; then
-    echo "✅ Model qwen3:8b already exists"
+if ollama list | grep -q "qwen3-coder:480b-cloud"; then
+    echo "✅ Model qwen3-coder:480b-cloud already exists"
 else
-    echo "📥 Downloading Qwen3-8B model (this may take 5-10 minutes)..."
-    ollama pull qwen3:8b
+    echo "📥 Downloading Qwen3-Coder-480B-Cloud model (this may take 5-10 minutes)..."
+    ollama pull qwen3-coder:480b-cloud
     echo "✅ Model downloaded successfully"
 fi
 
