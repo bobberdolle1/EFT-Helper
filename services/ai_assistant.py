@@ -230,50 +230,6 @@ class AIAssistant:
             # No specific quest name found, let AI handle it
             return await self._handle_general_query(text, user_id, language)
     
-    def _extract_key_info_from_news(self, news_items: List[Dict], language: str) -> str:
-        """Extract key information like release dates, Steam mentions from news."""
-        key_points = []
-        
-        # Keywords to look for
-        if language == "ru":
-            release_keywords = ["релиз", "release", "выход", "выйдет", "запуск", "ноябр", "november", "15"]
-            steam_keywords = ["steam", "стим"]
-            important_keywords = ["близко", "close", "календар", "отмет", "mark"]
-        else:
-            release_keywords = ["release", "launch", "november", "15"]
-            steam_keywords = ["steam"]
-            important_keywords = ["close", "calendar", "mark"]
-        
-        for item in news_items:
-            title_lower = item['title'].lower()
-            desc_lower = item['description'].lower()
-            combined = f"{title_lower} {desc_lower}"
-            
-            # Check for release date mentions
-            if any(kw in combined for kw in release_keywords):
-                if "15" in combined or "ноябр" in combined or "november" in combined:
-                    if language == "ru":
-                        key_points.append(f"🎯 РЕЛИЗ: {item['title']}")
-                        key_points.append(f"   {item['description'][:200]}...")
-                    else:
-                        key_points.append(f"🎯 RELEASE: {item['title']}")
-                        key_points.append(f"   {item['description'][:200]}...")
-            
-            # Check for Steam mentions
-            elif any(kw in combined for kw in steam_keywords):
-                if language == "ru":
-                    key_points.append(f"💎 STEAM: {item['title'][:80]}...")
-                else:
-                    key_points.append(f"💎 STEAM: {item['title'][:80]}...")
-        
-        if not key_points:
-            if language == "ru":
-                return "Ключевых дат релиза не обнаружено в последних новостях."
-            else:
-                return "No key release dates found in recent news."
-        
-        return "\n".join(key_points)
-    
     def _extract_quest_name(self, text: str, language: str) -> Optional[str]:
         """Extract quest name from user text."""
         import re
@@ -317,22 +273,19 @@ class AIAssistant:
         news_context = ""
         if self.news_service:
             try:
-                # Get all recent news - let AI decide what's relevant
+                # Get all recent news - AI analyzes everything
                 all_news = await self.news_service.get_latest_news(lang=language, limit=15)
                 if all_news:
                     logger.info(f"Fetched {len(all_news)} news items for AI context")
                     
-                    # Extract key release dates and important info
-                    key_info = self._extract_key_info_from_news(all_news, language)
-                    
                     news_list = "\n\n".join([
-                        f"{i+1}. {item['title']} ({item['date']})\n   {item['description']}\n   Link: {item['link']}"
+                        f"{i+1}. {item['title']}\n   Дата: {item['date']}\n   {item['description']}\n   Link: {item['link']}"
                         for i, item in enumerate(all_news)
                     ])
                     if language == "ru":
-                        news_context = f"\n\n{'='*60}\nКЛЮЧЕВАЯ ИНФОРМАЦИЯ ИЗ НОВОСТЕЙ:\n{key_info}\n{'='*60}\n\nПОЛНЫЕ НОВОСТИ из Telegram @escapefromtarkovRU ({len(all_news)} постов):\n{news_list}\n"
+                        news_context = f"\n\nПОСЛЕДНИЕ НОВОСТИ ИЗ TELEGRAM @escapefromtarkovRU ({len(all_news)} постов):\n\n{news_list}\n"
                     else:
-                        news_context = f"\n\n{'='*60}\nKEY INFORMATION FROM NEWS:\n{key_info}\n{'='*60}\n\nFULL NEWS from Telegram @escapefromtarkovEN ({len(all_news)} posts):\n{news_list}\n"
+                        news_context = f"\n\nLATEST NEWS FROM TELEGRAM @escapefromtarkovEN ({len(all_news)} posts):\n\n{news_list}\n"
             except Exception as e:
                 logger.error(f"Failed to fetch news: {e}")
         
