@@ -230,6 +230,50 @@ class AIAssistant:
             # No specific quest name found, let AI handle it
             return await self._handle_general_query(text, user_id, language)
     
+    def _extract_key_info_from_news(self, news_items: List[Dict], language: str) -> str:
+        """Extract key information like release dates, Steam mentions from news."""
+        key_points = []
+        
+        # Keywords to look for
+        if language == "ru":
+            release_keywords = ["релиз", "release", "выход", "выйдет", "запуск", "ноябр", "november", "15"]
+            steam_keywords = ["steam", "стим"]
+            important_keywords = ["близко", "close", "календар", "отмет", "mark"]
+        else:
+            release_keywords = ["release", "launch", "november", "15"]
+            steam_keywords = ["steam"]
+            important_keywords = ["close", "calendar", "mark"]
+        
+        for item in news_items:
+            title_lower = item['title'].lower()
+            desc_lower = item['description'].lower()
+            combined = f"{title_lower} {desc_lower}"
+            
+            # Check for release date mentions
+            if any(kw in combined for kw in release_keywords):
+                if "15" in combined or "ноябр" in combined or "november" in combined:
+                    if language == "ru":
+                        key_points.append(f"🎯 РЕЛИЗ: {item['title']}")
+                        key_points.append(f"   {item['description'][:200]}...")
+                    else:
+                        key_points.append(f"🎯 RELEASE: {item['title']}")
+                        key_points.append(f"   {item['description'][:200]}...")
+            
+            # Check for Steam mentions
+            elif any(kw in combined for kw in steam_keywords):
+                if language == "ru":
+                    key_points.append(f"💎 STEAM: {item['title'][:80]}...")
+                else:
+                    key_points.append(f"💎 STEAM: {item['title'][:80]}...")
+        
+        if not key_points:
+            if language == "ru":
+                return "Ключевых дат релиза не обнаружено в последних новостях."
+            else:
+                return "No key release dates found in recent news."
+        
+        return "\n".join(key_points)
+    
     def _extract_quest_name(self, text: str, language: str) -> Optional[str]:
         """Extract quest name from user text."""
         import re
@@ -278,14 +322,17 @@ class AIAssistant:
                 if all_news:
                     logger.info(f"Fetched {len(all_news)} news items for AI context")
                     
+                    # Extract key release dates and important info
+                    key_info = self._extract_key_info_from_news(all_news, language)
+                    
                     news_list = "\n\n".join([
                         f"{i+1}. {item['title']} ({item['date']})\n   {item['description']}\n   Link: {item['link']}"
                         for i, item in enumerate(all_news)
                     ])
                     if language == "ru":
-                        news_context = f"\n\nВАЖНО! Последние новости из Telegram @escapefromtarkovRU ({len(all_news)} постов):\n{news_list}\n\nИСПОЛЬЗУЙ ЭТУ ИНФОРМАЦИЮ ДЛЯ ОТВЕТА НА ВОПРОС ИГРОКА!\n"
+                        news_context = f"\n\n{'='*60}\nКЛЮЧЕВАЯ ИНФОРМАЦИЯ ИЗ НОВОСТЕЙ:\n{key_info}\n{'='*60}\n\nПОЛНЫЕ НОВОСТИ из Telegram @escapefromtarkovRU ({len(all_news)} постов):\n{news_list}\n"
                     else:
-                        news_context = f"\n\nIMPORTANT! Latest news from Telegram @escapefromtarkovEN ({len(all_news)} posts):\n{news_list}\n\nUSE THIS INFORMATION TO ANSWER THE PLAYER'S QUESTION!\n"
+                        news_context = f"\n\n{'='*60}\nKEY INFORMATION FROM NEWS:\n{key_info}\n{'='*60}\n\nFULL NEWS from Telegram @escapefromtarkovEN ({len(all_news)} posts):\n{news_list}\n"
             except Exception as e:
                 logger.error(f"Failed to fetch news: {e}")
         
@@ -293,6 +340,16 @@ class AIAssistant:
         text_lower = text.lower()
         quest_keywords = ["квест", "задание", "задача", "оружейник", "gunsmith", "quest", "task", "mission"] if language == "ru" else ["quest", "task", "mission", "gunsmith"]
         is_quest_question = any(kw in text_lower for kw in quest_keywords)
+        
+        # Check if question is about news/release/updates
+        if language == "ru":
+            news_keywords = ["релиз", "выход", "release", "вайп", "wipe", "обновлен", "патч", "patch", "update", 
+                           "новост", "news", "когда", "when", "дата", "date", "steam", "версия", "version"]
+        else:
+            news_keywords = ["release", "wipe", "update", "patch", "news", "when", "date", "steam", "version", "launch"]
+        
+        is_news_question = any(kw in text_lower for kw in news_keywords)
+        logger.info(f"Question about news/release: {is_news_question}")
         
         quest_context = ""
         if is_quest_question:
@@ -310,48 +367,62 @@ class AIAssistant:
             quest_context_section = f"Информация о квестах из API:\n{quest_context}\n\n"
         
         # Create prompt for general conversation
+        news_emphasis = ""
+        if is_news_question and news_context:
+            news_emphasis = "\n\n⚠️ ВНИМАНИЕ! Игрок СПРАШИВАЕТ О НОВОСТЯХ/РЕЛИЗЕ! ОБЯЗАТЕЛЬНО ИСПОЛЬЗУЙ ИНФОРМАЦИЮ ИЗ НОВОСТЕЙ ВЫШЕ! ⚠️\n"
+        
         if language == "ru":
             prompt = f"""Ты — Никита Буянов, главный разработчик Escape from Tarkov.
 Отвечай на вопросы игроков дружелюбно и профессионально на РУССКОМ языке.
 
-ВАЖНО: 
-- Отвечай ТОЛЬКО на русском языке
-- Не показывай ID предметов
-- Используй актуальную информацию об игре из контекста
-- Вся информация о квестах берется из API tarkov.dev
-- Если игрок спрашивает о новостях/релизе - ИСПОЛЬЗУЙ ВСЕ новости из контекста Telegram ниже, не только первую
-- Escape from Tarkov находится в бета-тестировании, полного релиза еще не было
-- Не выдумывай даты релизов если их нет в новостях
+КРИТИЧЕСКИ ВАЖНО:
+- ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ
+- НЕ ПОКАЗЫВАЙ ID предметов
+- ВСЯ информация о квестах берется ИЗ API tarkov.dev
+
+ПРАВИЛА ДЛЯ НОВОСТЕЙ:
+1. ЕСЛИ в контексте НИЖЕ ЕСТЬ новости - ОБЯЗАТЕЛЬНО используй их!
+2. ЕСЛИ в новостях указана ДАТА РЕЛИЗА - ОБЯЗАТЕЛЬНО сообщи ее!
+3. ЕСЛИ в новостях есть Steam/релиз - ОБЯЗАТЕЛЬНО упомяни это!
+4. ЕСЛИ новостей НЕТ - только тогда скажи что не знаешь
+5. НЕ ВЫДУМЫВАЙ ИНФОРМАЦИЮ - ТОЛЬКО ИЗ КОНТЕКСТА!
 
 Информация о пользователе:
 {user_context}{news_context}
-
+{news_emphasis}
 {quest_context_section}Вопрос игрока: {text}
 
-Твой ответ на русском:"""
+Твой ответ на русском (ИСПОЛЬЗУЙ ИНФОРМАЦИЮ ИЗ НОВОСТЕЙ):"""
         else:
             quest_context_section_en = ""
             if quest_context:
                 quest_context_section_en = f"Quest information from API:\n{quest_context}\n\n"
             
+            news_emphasis_en = ""
+            if is_news_question and news_context:
+                news_emphasis_en = "\n\n⚠️ ATTENTION! Player is ASKING ABOUT NEWS/RELEASE! YOU MUST USE INFORMATION FROM NEWS ABOVE! ⚠️\n"
+            
             prompt = f"""You are Nikita Buyanov, lead developer of Escape from Tarkov.
 Answer player questions in a friendly and professional manner in ENGLISH.
 
-IMPORTANT:
-- Respond ONLY in English
-- Do not show item IDs
-- Use current game information from context
-- All quest information comes from tarkov.dev API
-- If player asks about news/release - USE ALL news from Telegram context below, not just the first one
-- Escape from Tarkov is in beta testing, there has been no full release yet
-- Do not make up release dates if they are not in the news
+CRITICALLY IMPORTANT:
+- RESPOND ONLY IN ENGLISH
+- DO NOT SHOW item IDs
+- ALL quest information comes FROM tarkov.dev API
+
+RULES FOR NEWS:
+1. IF there ARE news in context BELOW - YOU MUST use them!
+2. IF news mention RELEASE DATE - YOU MUST tell it!
+3. IF news mention Steam/release - YOU MUST mention it!
+4. IF there are NO news - only then say you don't know
+5. DO NOT MAKE UP information - ONLY FROM CONTEXT!
 
 User information:
 {user_context}{news_context}
-
+{news_emphasis_en}
 {quest_context_section_en}Player's question: {text}
 
-Your response in English:"""
+Your response in English (USE INFORMATION FROM NEWS):"""
         
         try:
             response = await self.ai_gen._call_ollama(prompt)
